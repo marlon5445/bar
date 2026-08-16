@@ -1,0 +1,8 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Redirigir index.php/ruta o cualquier ruta al directorio public/
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^index\.php/(.*)$ public/index.php/$1 [L,QSA]
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L,QSA]
+</IfModule>
