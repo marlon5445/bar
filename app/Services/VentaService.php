@@ -98,9 +98,9 @@ class VentaService
             foreach ($itemsExpandidos as $item) {
                 $this->insertarDetalleVenta($ventaId, $item);
 
-                if ($item['controla_stock']) {
-                    $this->descontarStock($item, $ventaId, $usuarioId);
-                }
+                // La línea promoción no controla stock por sí misma, pero su
+                // contenido ya fue expandido en items_stock.
+                $this->descontarStock($item, $ventaId, $usuarioId);
             }
 
             if ($tipoPago === 'FIADO') {
@@ -189,55 +189,41 @@ class VentaService
 
     public function anular(int $ventaId, int $usuarioId): array
     {
-        $ventaModel = new VentaModel();
-        $venta = $ventaModel->find($ventaId);
-
-        if (!$venta) {
-            return ['success' => false, 'mensaje' => 'La venta no existe.'];
-        }
-
-        $estadoActual = strtoupper($venta['estado']);
-        if ($estadoActual === 'ANULADA' || $estadoActual === 'CANCELADA') {
-            return ['success' => false, 'mensaje' => 'Esta venta ya se encuentra anulada y no se puede volver a anular.'];
-        }
-
-        if ($estadoActual !== 'COMPLETADA') {
-            return ['success' => false, 'mensaje' => 'Solo se pueden anular ventas en estado COMPLETADA.'];
-        }
-
-        $detalles = $this->db->table('venta_detalle')
-                             ->where('venta_id', $ventaId)
-                             ->get()->getResultArray();
-
         $this->db->transBegin();
 
         try {
-            // 1. Cambiar estado de venta a CANCELADA (coincide con ENUM en BD)
-            $this->db->table('ventas')
-                     ->where('id', $ventaId)
-                     ->update(['estado' => 'CANCELADA']);
+            // Bloquear la venta durante toda la transacción evita dos
+            // anulaciones concurrentes.
+            $venta = $this->db->query(
+                'SELECT * FROM ventas WHERE id = ? FOR UPDATE',
+                [$ventaId]
+            )->getRowArray();
 
-            // 2. Devolución de stock e inserción en movimientos_stock
-            foreach ($detalles as $det) {
-                $cantVendida = (int) $det['cantidad'];
-
-                if (!empty($det['producto_id'])) {
-                    // Producto directo
-                    $this->devolverStockProducto((int)$det['producto_id'], $cantVendida, $ventaId, $usuarioId);
-                } elseif (!empty($det['promocion_id'])) {
-                    // Promoción -> devolver componentes
-                    $promoDetalles = $this->db->table('promocion_detalle')
-                                              ->where('promocion_id', $det['promocion_id'])
-                                              ->get()->getResultArray();
-
-                    foreach ($promoDetalles as $pDet) {
-                        $cantComponente = (int)$pDet['cantidad'] * $cantVendida;
-                        $this->devolverStockProducto((int)$pDet['producto_id'], $cantComponente, $ventaId, $usuarioId, "Promo #{$det['promocion_id']}");
-                    }
-                }
+            if (!$venta) {
+                throw new \RuntimeException('La venta no existe.');
             }
 
-            // 3. Si fue FIADO, actualizar la tabla fiados a CANCELADO (ya no forma parte de la deuda)
+            $estadoActual = strtoupper(trim($venta['estado']));
+            if ($estadoActual === 'ANULADA' || $estadoActual === 'CANCELADA') {
+                throw new \RuntimeException('Esta venta ya se encuentra anulada y no se puede volver a anular.');
+            }
+
+            if ($estadoActual !== 'COMPLETADA') {
+                throw new \RuntimeException('Solo se pueden anular ventas en estado COMPLETADA.');
+            }
+
+            // La fuente de verdad es lo que efectivamente se descontó.
+            $movimientos = $this->db->table('movimientos_stock')
+                                    ->where('referencia_id', $ventaId)
+                                    ->where('tipo_movimiento', 'VENTA')
+                                    ->orderBy('id', 'ASC')
+                                    ->get()->getResultArray();
+
+            foreach ($movimientos as $movimiento) {
+                $this->devolverStockMovimiento($movimiento, $ventaId, $usuarioId);
+            }
+
+            // Si fue FIADO, actualizar la tabla fiados a CANCELADO.
             if (strtoupper($venta['tipo_pago']) === 'FIADO') {
                 $this->db->table('fiados')
                          ->where('venta_id', $ventaId)
@@ -247,6 +233,12 @@ class VentaService
                              'observacion' => 'Observación / Garantía: Venta anulada'
                          ]);
             }
+
+            // Cambiar el estado al final deja toda la operación protegida por
+            // la misma transacción que la devolución del inventario.
+            $this->db->table('ventas')
+                     ->where('id', $ventaId)
+                     ->update(['estado' => 'CANCELADA']);
 
             if ($this->db->transStatus() === false) {
                 $this->db->transRollback();
@@ -264,26 +256,27 @@ class VentaService
         } catch (\Throwable $e) {
             $this->db->transRollback();
             log_message('error', "[VentaService] ROLLBACK en anulación #{$ventaId} — " . $e->getMessage());
-            return ['success' => false, 'mensaje' => 'Error al anular la venta: ' . $e->getMessage()];
+            return ['success' => false, 'mensaje' => $e->getMessage()];
         }
     }
 
     /**
-     * Helper: Devolver stock de un producto e insertar registro en movimientos_stock
+     * Devuelve exactamente un movimiento VENTA ya registrado y crea su AJUSTE.
      */
-    private function devolverStockProducto(int $productoId, int $cantidad, int $ventaId, int $usuarioId, string $extraObs = ''): void
+    private function devolverStockMovimiento(array $movimiento, int $ventaId, int $usuarioId): void
     {
         $producto = $this->db->table('productos')
                              ->select('id, nombre, stock_actual, controla_stock')
-                             ->where('id', $productoId)
+                             ->where('id', (int) $movimiento['producto_id'])
                              ->get()->getRowArray();
 
         if (!$producto) {
-            throw new \RuntimeException("Producto ID {$productoId} no encontrado al devolver stock.");
+            throw new \RuntimeException("Producto ID {$movimiento['producto_id']} no encontrado al devolver stock.");
         }
 
-        if (!$producto['controla_stock']) {
-            return;
+        $cantidad = (int) $movimiento['cantidad'];
+        if ($cantidad <= 0) {
+            throw new \RuntimeException('El movimiento de venta tiene una cantidad inválida.');
         }
 
         $stockAnterior  = (float) $producto['stock_actual'];
@@ -291,25 +284,23 @@ class VentaService
 
         // Actualizar stock del producto
         $this->db->table('productos')
-                 ->where('id', $productoId)
+                 ->where('id', (int) $movimiento['producto_id'])
                  ->update(['stock_actual' => $stockPosterior]);
 
-        // Registrar movimiento de stock
-        $obs = "Anulación de venta #{$ventaId}";
-        if ($extraObs !== '') {
-            $obs .= " ({$extraObs})";
+        if ($this->db->affectedRows() === 0) {
+            throw new \RuntimeException("No se pudo devolver stock del producto '{$producto['nombre']}'.");
         }
-        $obs .= " - {$producto['nombre']}";
 
+        // Registrar movimiento de stock
         $this->db->table('movimientos_stock')->insert([
-            'producto_id'     => $productoId,
+            'producto_id'     => (int) $movimiento['producto_id'],
             'tipo_movimiento' => 'AJUSTE',
             'cantidad'        => $cantidad,
             'stock_anterior'  => $stockAnterior,
             'stock_posterior' => $stockPosterior,
             'usuario_id'      => $usuarioId,
             'referencia_id'   => $ventaId,
-            'observacion'     => $obs,
+            'observacion'     => "Reversión de venta #{$ventaId} por anulación",
             'fecha'           => date('Y-m-d H:i:s'),
         ]);
     }
@@ -542,7 +533,9 @@ class VentaService
                 'stock_posterior' => $stockPosterior,
                 'usuario_id'      => $usuarioId,
                 'referencia_id'   => $ventaId,
-                'observacion'     => "Venta #{$ventaId} - {$prod['nombre']}",
+                'observacion'     => $item['tipo_linea'] === 'promocion'
+                    ? "Venta #{$ventaId} - Producto incluido en promoción \"{$item['nombre']}\""
+                    : "Venta #{$ventaId} - Producto directo",
                 'fecha'           => date('Y-m-d H:i:s'),
             ]);
         }
