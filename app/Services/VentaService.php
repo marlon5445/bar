@@ -83,6 +83,8 @@ class VentaService
         $this->db->transBegin();
 
         try {
+            $productosStockAfectado = [];
+
             $ventaId = $this->insertarVenta([
                 'usuario_id'  => $usuarioId,
                 'mesero_id'   => $meseroId,
@@ -100,11 +102,27 @@ class VentaService
 
                 // La línea promoción no controla stock por sí misma, pero su
                 // contenido ya fue expandido en items_stock.
-                $this->descontarStock($item, $ventaId, $usuarioId);
+                $this->descontarStock($item, $ventaId, $usuarioId, $productosStockAfectado);
             }
 
             if ($tipoPago === 'FIADO') {
                 $this->insertarFiado($ventaId, $clienteId, $total, trim($data['observacion'] ?? ''));
+            }
+
+            $stockActualizado = [];
+            foreach (array_keys($productosStockAfectado) as $productoId) {
+                $producto = $this->db->table('productos')
+                                     ->select('id, stock_actual, controla_stock')
+                                     ->where('id', (int) $productoId)
+                                     ->where('controla_stock', 1)
+                                     ->get()->getRowArray();
+
+                if ($producto) {
+                    $stockActualizado[] = [
+                        'producto_id'  => (int) $producto['id'],
+                        'stock_actual' => (int) $producto['stock_actual'],
+                    ];
+                }
             }
 
             if ($this->db->transStatus() === false) {
@@ -118,13 +136,14 @@ class VentaService
                 'success'  => true,
                 'venta_id' => $ventaId,
                 'total'    => $total,
+                'stock_actualizado' => $stockActualizado,
                 'mensaje'  => 'Venta registrada correctamente.',
             ];
 
         } catch (\Throwable $e) {
             $this->db->transRollback();
             log_message('error', '[VentaService] ROLLBACK — ' . $e->getMessage());
-            return ['success' => false, 'mensaje' => 'Error al procesar la venta. Se revirtieron los cambios.'];
+            return ['success' => false, 'mensaje' => $e->getMessage() ?: 'Error al procesar la venta. Se revirtieron los cambios.'];
         }
     }
 
@@ -490,7 +509,7 @@ class VentaService
         $this->db->table('venta_detalle')->insert($fila);
     }
 
-    private function descontarStock(array $item, int $ventaId, int $usuarioId): void
+    private function descontarStock(array $item, int $ventaId, int $usuarioId, array &$productosStockAfectado): void
     {
         foreach ($item['items_stock'] as $s) {
             if (!$s['controla_stock']) {
@@ -513,7 +532,7 @@ class VentaService
             $stockPosterior = $stockAnterior - $cantidad;
 
             if ($stockPosterior < 0) {
-                throw new \RuntimeException("Stock insuficiente para '{$prod['nombre']}' durante la transacción.");
+                throw new \RuntimeException("Stock insuficiente para '{$prod['nombre']}'. Disponible: {$stockAnterior} | Solicitado: {$cantidad}.");
             }
 
             $this->db->table('productos')
@@ -524,6 +543,8 @@ class VentaService
             if ($this->db->affectedRows() === 0) {
                 throw new \RuntimeException("No se pudo descontar stock del producto '{$prod['nombre']}'.");
             }
+
+            $productosStockAfectado[$productoId] = true;
 
             $this->db->table('movimientos_stock')->insert([
                 'producto_id'     => $productoId,

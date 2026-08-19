@@ -620,6 +620,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     setBtnConfirmLoading(false);
                     if (data.success) {
+                        actualizarStockVisual(data.stock_actualizado);
                         checkoutModal.classList.remove('show');
                         mostrarExito(data);
                     } else {
@@ -641,6 +642,32 @@ document.addEventListener('DOMContentLoaded', function () {
         if (successModalId) successModalId.textContent = 'Venta #' + data.venta_id;
         if (successModalMsg) successModalMsg.textContent = data.mensaje || '¡Venta registrada correctamente!';
         if (successModal) successModal.classList.add('show');
+    }
+
+    // Refleja exclusivamente el stock confirmado por el backend.
+    function actualizarStockVisual(stockActualizado) {
+        if (!Array.isArray(stockActualizado)) return;
+
+        stockActualizado.forEach(stock => {
+            const productoId = String(stock.producto_id);
+            const stockActual = Number(stock.stock_actual);
+            if (!Number.isFinite(stockActual)) return;
+
+            document
+                .querySelectorAll(`.product-card[data-type="PRODUCT"][data-id="${productoId}"]`)
+                .forEach(card => {
+                    card.dataset.stock = String(stockActual);
+                    const badge = card.querySelector('.product-badge-stock');
+                    if (badge) badge.textContent = `St: ${stockActual}`;
+                });
+
+            // Mantener actualizado el cache del carrito para futuras ventas.
+            cart.forEach(item => {
+                if (item.type === 'PRODUCT' && String(item.id) === productoId) {
+                    item.stock = stockActual;
+                }
+            });
+        });
     }
 
     if (btnSuccessClose) {
