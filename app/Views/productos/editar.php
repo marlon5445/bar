@@ -75,13 +75,46 @@
         </div>
 
         <?php if ($producto['controla_stock'] == '1'): ?>
+        <div class="form-group">
+            <label class="form-label">Manejo de unidades sueltas</label>
+            <div style="background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.75rem 1rem; color: var(--text-muted); font-weight: 600;">
+                <?= $producto['maneja_unidades'] == '1' ? '✅ Permite venta por unidades sueltas' : '❌ No permite venta por unidades sueltas'; ?>
+                <input type="hidden" name="maneja_unidades" value="<?= $producto['maneja_unidades']; ?>">
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Esta opción no se puede cambiar después de la creación.</p>
+        </div>
+
+        <?php if ($producto['maneja_unidades'] == '1'): ?>
+        <div class="form-group">
+            <label for="precio_unidad" class="form-label">Precio por Unidad Suelta (S/)</label>
+            <input type="number" id="precio_unidad" name="precio_unidad" step="0.01" min="0" value="<?= old('precio_unidad', $producto['precio_unidad'] ?? 0); ?>" class="form-input-custom" placeholder="Ej: 2.00">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Precio que se aplicará cuando se venda una unidad suelta.</p>
+        </div>
+
         <div class="form-grid-2">
             <div class="form-group">
-                <label class="form-label">Stock Actual</label>
+                <label for="unidades_por_caja" class="form-label">Unidades por caja/cajetilla</label>
+                <input type="number" id="unidades_por_caja" name="unidades_por_caja" value="<?= old('unidades_por_caja', $producto['unidades_por_caja']); ?>" class="form-input-custom" placeholder="Ej: 20">
+                <p style="font-size: 0.75rem; color: var(--text-muted);">Cantidad de unidades que vienen en una caja cerrada.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Stock Actual de Unidades</label>
+                <div style="background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.75rem 1rem; color: var(--text-primary); font-weight: 700;">
+                    <?= $producto['stock_unidades']; ?>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cantidad de unidades individuales disponibles para venta.</p>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <div class="form-grid-2">
+            <div class="form-group">
+                <label class="form-label">Stock Actual Cerrado</label>
                 <div style="background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.75rem 1rem; color: var(--text-primary); font-weight: 700;">
                     <?= $producto['stock_actual']; ?>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Para modificar el stock, use la opción "Ajustar Stock" en el listado.</p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cantidad de cajas, cajetillas o botellas cerradas disponibles.</p>
             </div>
 
             <div class="form-group">
@@ -116,106 +149,7 @@
 </div>
 
 <style>
-    .card-form-center {
-        max-width: 700px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-    .modern-form {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    .form-grid-2 {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.5rem;
-    }
-    .form-label {
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-    }
-    .form-input-custom {
-        width: 100%;
-        background: var(--bg-body);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        padding: 0.75rem 1rem;
-        color: var(--text-primary);
-        font-family: inherit;
-        font-size: 1rem;
-        transition: var(--transition);
-        outline: none;
-    }
-    .form-input-custom:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-glow);
-    }
-    .textarea-custom {
-        min-height: 100px;
-        resize: vertical;
-    }
-    .form-actions-full {
-        margin-top: 1rem;
-    }
-    .btn-primary-full {
-        width: 100%;
-        background: var(--accent);
-        color: #000;
-        padding: 0.85rem;
-        border-radius: 10px;
-        border: none;
-        font-weight: 700;
-        font-size: 1rem;
-        cursor: pointer;
-        transition: var(--transition);
-    }
-    .btn-primary-full:hover {
-        background: var(--accent-hover);
-        transform: translateY(-2px);
-        box-shadow: var(--accent-glow);
-    }
-    .btn-secondary-full {
-        width: 100%;
-        background: var(--bg-card);
-        color: var(--text-primary);
-        padding: 0.85rem;
-        border-radius: 10px;
-        border: 1px solid var(--border-color);
-        font-weight: 600;
-        font-size: 1rem;
-        transition: var(--transition);
-    }
-    .btn-secondary-full:hover {
-        background: var(--bg-card-hover);
-    }
-    .btn-secondary-custom {
-        background: var(--bg-card);
-        color: var(--text-primary);
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 600;
-        border: 1px solid var(--border-color);
-        transition: var(--transition);
-        font-size: 0.9rem;
-    }
-    .btn-secondary-custom:hover {
-        background: var(--bg-card-hover);
-        border-color: var(--text-muted);
-    }
-    .text-danger { color: var(--danger); }
-
-    @media (max-width: 600px) {
-        .form-grid-2 { grid-template-columns: 1fr; }
-        .card-form-center { padding: 1.25rem; }
-    }
+    /* Estilos específicos de esta vista si los hubiera */
 </style>
 
 <?= $this->endSection(); ?>

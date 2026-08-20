@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Cargar tema guardado en localStorage o predeterminado 'light'
     const currentTheme = localStorage.getItem('bar_manager_theme') || 'light';
+    
+    // El tema ya debería estar aplicado por el script anti-flicker en el head,
+    // pero llamamos a applyTheme para sincronizar UI (iconos/texto) si existen.
     applyTheme(currentTheme);
 
     if (themeToggleBtn) {

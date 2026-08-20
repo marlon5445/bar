@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - BAR MANAGER</title>
+    <!-- Script Anti-Flicker de Tema (Aplica el tema antes del renderizado de la página) -->
+    <script>
+        (function () {
+            var savedTheme = localStorage.getItem('bar_manager_theme') || 'light';
+            if (savedTheme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+        })();
+    </script>
     <!-- CSS del Sistema de Diseño BAR MANAGER -->
     <link rel="stylesheet" href="<?= base_url('css/index.css'); ?>">
     <style>

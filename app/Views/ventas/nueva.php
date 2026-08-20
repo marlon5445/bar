@@ -10,6 +10,9 @@
     <a href="<?= site_url('ventas/historial'); ?>" class="ventas-nav-tab">
         📋 HISTORIAL DE VENTAS
     </a>
+    <a href="<?= site_url('ventas/apertura'); ?>" class="ventas-nav-tab">
+        📦 APERTURA DE PRODUCTOS
+    </a>
 </div>
 
 <div class="pos-container">
@@ -120,8 +123,12 @@
                 ?>
                 <div class="product-card" data-id="<?= $prod['id']; ?>" data-type="PRODUCT"
                     data-name="<?= esc($prod['nombre']); ?>" data-price="<?= $prod['precio_venta']; ?>"
+                    data-unit-price="<?= $prod['precio_unidad']; ?>"
                     data-code="<?= esc($prod['codigo'] ?? ''); ?>" data-category="<?= $prod['categoria_id']; ?>"
                     data-icon="<?= $icon; ?>"
+                    data-maneja-unidades="<?= $prod['maneja_unidades']; ?>"
+                    data-unidades-por-caja="<?= $prod['unidades_por_caja']; ?>"
+                    data-stock-unidades="<?= $prod['stock_unidades']; ?>"
                     data-stock="<?= $prod['controla_stock'] == 1 ? $prod['stock_actual'] : ''; ?>">
 
                     <div class="product-card-thumb">
@@ -144,7 +151,14 @@
                         <div class="product-meta">
                             <span class="product-price">S/ <?= number_format($prod['precio_venta'], 2); ?></span>
                             <?php if ($prod['controla_stock'] == 1): ?>
-                                <span class="product-badge-stock">St: <?= $prod['stock_actual']; ?></span>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                                    <span class="product-badge-stock" title="Stock Cerrado">St: <?= $prod['stock_actual']; ?></span>
+                                    <?php if ($prod['maneja_unidades'] == 1): ?>
+                                        <span class="product-badge-stock" style="background: rgba(16, 185, 129, 0.1); color: var(--success); font-size: 0.65rem;" title="Stock Unidades">
+                                            Un: <?= $prod['stock_unidades']; ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             <?php else: ?>
                                 <span class="product-badge-stock" style="color: var(--info);">Libre</span>
                             <?php endif; ?>
@@ -222,8 +236,51 @@
 
 </div>
 
-<!-- OVERLAY OSCURO CUANDO EL CARRITO MOBILE ESTÁ ABIERTO -->
 <div class="mobile-cart-overlay" id="mobileCartOverlay"></div>
+
+<!-- MODAL PARA ELEGIR TIPO DE VENTA (UNIDAD/CAJETILLA) -->
+<div class="pos-modal-overlay" id="modalTipoVenta">
+    <div class="pos-modal-box" style="max-width: 450px;">
+        <div class="pos-modal-icon">🛒</div>
+        <h3 class="pos-modal-title">¿Cómo desea vender?</h3>
+        <p id="nombreProductoUnidad" style="font-weight: 600; margin-bottom: 1.5rem; color: var(--accent);"></p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+            <button type="button" id="btnVentaCajetilla" class="pos-modal-btn" style="height: auto; padding: 1.25rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; background: var(--bg-body); border: 2px solid var(--border-color); color: var(--text-primary);">
+                <span style="font-size: 1.75rem;">📦</span>
+                <span style="font-weight: 700; font-size: 0.9rem;">CAJA</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted);" id="infoStockCajetilla">Stock: 0</span>
+            </button>
+            <button type="button" id="btnVentaUnidad" class="pos-modal-btn" style="height: auto; padding: 1.25rem 0.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; background: var(--success-bg); border: 2px solid var(--success); color: var(--text-primary);">
+                <span style="font-size: 1.75rem;">🚬</span>
+                <span style="font-weight: 700; font-size: 0.9rem;">UNIDAD</span>
+                <span style="font-size: 0.75rem; color: var(--success);" id="infoStockUnidad">Stock: 0</span>
+            </button>
+        </div>
+
+        <div class="pos-modal-actions">
+            <button type="button" class="pos-modal-btn pos-modal-btn-cancel" id="btnCancelarTipoVenta" style="grid-column: span 2;">CANCELAR</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CONFIRMACIÓN APERTURA AUTOMÁTICA -->
+<div class="pos-modal-overlay" id="modalConfirmApertura">
+    <div class="pos-modal-box" style="max-width: 450px;">
+        <div class="pos-modal-icon" style="background: var(--warning-bg); color: var(--warning);">⚠️</div>
+        <h3 class="pos-modal-title">Stock insuficiente</h3>
+        
+        <div style="margin-bottom: 1.5rem;">
+            <p style="color: var(--text-primary); margin-bottom: 0.5rem;">No hay unidades sueltas disponibles.</p>
+            <p style="font-weight: 600; color: var(--accent);">¿Desea abrir una cajetilla para realizar esta venta?</p>
+        </div>
+
+        <div class="pos-modal-actions">
+            <button type="button" class="pos-modal-btn pos-modal-btn-cancel" id="btnCancelarAperturaAuto">CANCELAR</button>
+            <button type="button" class="pos-modal-btn pos-modal-btn-confirm" id="btnConfirmarAperturaAuto" style="background: var(--accent);">ABRIR</button>
+        </div>
+    </div>
+</div>
 
 <!-- BARRA INFERIOR FLOTANTE PARA DISPOSITIVOS MÓVILES -->
 <div class="mobile-cart-bar" id="mobileCartBar">

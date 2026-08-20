@@ -84,6 +84,74 @@ class Ventas extends BaseController
         ]);
     }
 
+    public function apertura()
+    {
+        $productos = $this->productoModel->obtenerActivosConCategoria();
+        
+        $db = \Config\Database::connect();
+        $aperturas = $db->table('movimientos_stock')
+            ->select('movimientos_stock.*, productos.nombre as producto_nombre, productos.maneja_unidades')
+            ->join('productos', 'productos.id = movimientos_stock.producto_id')
+            ->where('tipo_movimiento', 'APERTURA')
+            ->where("NOT EXISTS (
+                SELECT 1 FROM movimientos_stock as ms2 
+                WHERE ms2.tipo_movimiento = 'AJUSTE' 
+                AND ms2.referencia_id = movimientos_stock.id
+                AND ms2.observacion LIKE 'Reversión de apertura%'
+            )")
+            ->groupStart()
+                ->where('observacion NOT LIKE', '%unidades sueltas%')
+                ->orWhere('productos.maneja_unidades', 0)
+            ->groupEnd()
+            ->orderBy('fecha', 'DESC')
+            ->limit(20)
+            ->get()
+            ->getResultArray();
+
+        return view('ventas/apertura', [
+            'titulo'    => 'Apertura de Productos',
+            'productos' => $productos,
+            'aperturas' => $aperturas,
+        ]);
+    }
+
+    public function procesarApertura()
+    {
+        $productoId = $this->request->getPost('producto_id');
+        $cantidad = (int)$this->request->getPost('cantidad');
+
+        if ($cantidad <= 0) {
+            return redirect()->back()->with('error', 'La cantidad debe ser mayor a 0.');
+        }
+
+        try {
+            $resultado = $this->ventaService->realizarApertura($productoId, $cantidad, session()->get('usuario_id'));
+            
+            if ($resultado['success']) {
+                return redirect()->to(site_url('ventas/apertura'))->with('success', $resultado['message']);
+            } else {
+                return redirect()->back()->with('error', $resultado['message']);
+            }
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    public function revertirApertura($id)
+    {
+        try {
+            $resultado = $this->ventaService->revertirApertura((int)$id, session()->get('usuario_id'));
+            
+            if ($resultado['success']) {
+                return redirect()->to(site_url('ventas/apertura'))->with('success', $resultado['message']);
+            } else {
+                return redirect()->back()->with('error', $resultado['message']);
+            }
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // API: OBTENER DETALLE DE VENTA (GET JSON)
     // Ruta: GET /ventas/detalle/(:num)

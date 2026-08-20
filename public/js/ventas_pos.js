@@ -76,6 +76,20 @@ document.addEventListener('DOMContentLoaded', function () {
     let selectedClienteId = null;
     let clienteSearchTimeout = null;
 
+    const modalTipoVenta = document.getElementById('modalTipoVenta');
+    const btnVentaCajetilla = document.getElementById('btnVentaCajetilla');
+    const btnVentaUnidad = document.getElementById('btnVentaUnidad');
+    const btnCancelarTipoVenta = document.getElementById('btnCancelarTipoVenta');
+    const nombreProductoUnidad = document.getElementById('nombreProductoUnidad');
+    const infoStockCajetilla = document.getElementById('infoStockCajetilla');
+    const infoStockUnidad = document.getElementById('infoStockUnidad');
+
+    const modalConfirmApertura = document.getElementById('modalConfirmApertura');
+    const btnCancelarAperturaAuto = document.getElementById('btnCancelarAperturaAuto');
+    const btnConfirmarAperturaAuto = document.getElementById('btnConfirmarAperturaAuto');
+
+    let pendingItem = null;
+
     // ─────────────────────────────────────────────────────────────────────────
     // 1. PRODUCTOS: EVENT LISTENERS
     // ─────────────────────────────────────────────────────────────────────────
@@ -85,11 +99,23 @@ document.addEventListener('DOMContentLoaded', function () {
             const type = this.dataset.type; // 'PRODUCT' o 'PROMO'
             const name = this.dataset.name;
             const price = parseFloat(this.dataset.price);
+            const unitPrice = parseFloat(this.dataset.unitPrice) || 0;
             const code = this.dataset.code || '';
             const icon = this.dataset.icon || (type === 'PROMO' ? '🔥' : '🍺');
             const stock = this.dataset.stock !== undefined ? parseInt(this.dataset.stock) : null;
+            const manejaUnidades = this.dataset.manejaUnidades == '1';
+            const unitsPerBox = parseInt(this.dataset.unidadesPorCaja) || 0;
+            const unitsStock = parseInt(this.dataset.stockUnidades) || 0;
 
-            addToCart({ id, type, name, price, code, icon, stock });
+            if (manejaUnidades) {
+                pendingItem = { id, type, name, price, unitPrice, code, icon, stock, manejaUnidades, unitsPerBox, unitsStock };
+                nombreProductoUnidad.textContent = name;
+                infoStockCajetilla.textContent = `Stock: ${stock}`;
+                infoStockUnidad.textContent = `Stock: ${unitsStock}`;
+                modalTipoVenta.classList.add('show');
+            } else {
+                addToCart({ id, type, name, price, code, icon, stock, venderPorUnidad: false });
+            }
 
             // Feedback visual breve al tocar
             this.style.transform = 'scale(0.95)';
@@ -97,11 +123,92 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    btnVentaCajetilla.addEventListener('click', function() {
+        if (pendingItem) {
+            addToCart({ ...pendingItem, venderPorUnidad: false });
+            modalTipoVenta.classList.remove('show');
+            pendingItem = null;
+        }
+    });
+
+    btnVentaUnidad.addEventListener('click', function() {
+        if (pendingItem) {
+            if (pendingItem.unitPrice <= 0) {
+                alert('Este producto no tiene precio por unidad configurado.');
+                return;
+            }
+            if (pendingItem.unitsStock <= 0) {
+                if (pendingItem.stock > 0) {
+                    modalTipoVenta.classList.remove('show');
+                    modalConfirmApertura.classList.add('show');
+                } else {
+                    alert('No hay stock disponible ni para unidades sueltas ni para apertura.');
+                }
+            } else {
+                addToCart({ 
+                    ...pendingItem, 
+                    price: pendingItem.unitPrice, 
+                    venderPorUnidad: true 
+                });
+                modalTipoVenta.classList.remove('show');
+                pendingItem = null;
+            }
+        }
+    });
+
+    btnConfirmarAperturaAuto.addEventListener('click', function() {
+        if (pendingItem) {
+            // Redirigir a la pantalla de apertura
+            window.location.href = `${POS_BASE_URL}ventas/apertura`;
+            modalConfirmApertura.classList.remove('show');
+            pendingItem = null;
+        }
+    });
+
+    // Cerrar modales al hacer clic fuera
+    document.querySelectorAll('.pos-modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('show');
+                if (this.id === 'modalTipoVenta' || this.id === 'modalConfirmApertura') pendingItem = null;
+            }
+        });
+    });
+
+    // Botones de cancelar en modales
+    if (btnCancelarTipoVenta) {
+        btnCancelarTipoVenta.addEventListener('click', () => {
+            modalTipoVenta.classList.remove('show');
+            pendingItem = null;
+        });
+    }
+
+    if (btnCancelarAperturaAuto) {
+        btnCancelarAperturaAuto.addEventListener('click', () => {
+            modalConfirmApertura.classList.remove('show');
+            pendingItem = null;
+        });
+    }
+
+    // Cerrar modales con ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.pos-modal-overlay.show').forEach(modal => {
+                modal.classList.remove('show');
+                if (modal.id === 'modalTipoVenta' || modal.id === 'modalConfirmApertura') pendingItem = null;
+            });
+        }
+    });
+
     // ─────────────────────────────────────────────────────────────────────────
     // 2. AGREGAR ITEM AL CARRITO (O INCREMENTAR)
     // ─────────────────────────────────────────────────────────────────────────
     function addToCart(itemData) {
-        const existingIndex = cart.findIndex(i => i.id === itemData.id && i.type === itemData.type);
+        const existingIndex = cart.findIndex(i => 
+            i.id === itemData.id && 
+            i.type === itemData.type && 
+            i.venderPorUnidad === itemData.venderPorUnidad
+        );
 
         if (existingIndex > -1) {
             cart[existingIndex].qty += 1;
@@ -115,6 +222,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 code: itemData.code,
                 icon: itemData.icon,
                 stock: itemData.stock,
+                venderPorUnidad: itemData.venderPorUnidad,
                 qty: 1,
                 subtotal: itemData.price
             });
@@ -158,6 +266,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let html = '';
         cart.forEach((item, index) => {
             const hasStock = item.stock !== null && item.stock !== undefined && item.stock !== '';
+            const unidadLabel = item.venderPorUnidad ? ' <span style="color:var(--success); font-size:0.7rem; font-weight:bold;">[UNIDAD]</span>' : '';
             html += `
             <div class="cart-item-card" data-index="${index}">
                 <!-- Fila Superior: Identidad del Producto y Botón Eliminar -->
@@ -165,10 +274,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="cart-item-identity">
                         <span class="cart-item-icon-box">${escapeHtml(item.icon)}</span>
                         <div class="cart-item-details">
-                            <span class="cart-item-name">${escapeHtml(item.name)}</span>
+                            <span class="cart-item-name">${escapeHtml(item.name)}${unidadLabel}</span>
                             <div class="cart-item-submeta">
                                 <span class="cart-item-unit-price">S/ ${item.price.toFixed(2)} c/u</span>
-                                ${hasStock ? `<span class="cart-stock-badge">St: ${item.stock}</span>` : ''}
+                                ${hasStock && !item.venderPorUnidad ? `<span class="cart-stock-badge">St: ${item.stock}</span>` : ''}
                             </div>
                         </div>
                     </div>
@@ -593,6 +702,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 tipo: item.type === 'PROMO' ? 'promocion' : 'producto',
                 id: parseInt(item.id),
                 cantidad: item.qty,
+                precio_unitario: item.price,
+                vender_por_unidad: item.venderPorUnidad || false
             }));
 
             const payload = {
@@ -651,20 +762,41 @@ document.addEventListener('DOMContentLoaded', function () {
         stockActualizado.forEach(stock => {
             const productoId = String(stock.producto_id);
             const stockActual = Number(stock.stock_actual);
+            const stockUnidades = stock.stock_unidades !== undefined ? Number(stock.stock_unidades) : null;
+            
             if (!Number.isFinite(stockActual)) return;
 
             document
                 .querySelectorAll(`.product-card[data-type="PRODUCT"][data-id="${productoId}"]`)
                 .forEach(card => {
+                    // Actualizar datasets
                     card.dataset.stock = String(stockActual);
-                    const badge = card.querySelector('.product-badge-stock');
-                    if (badge) badge.textContent = `St: ${stockActual}`;
+                    if (stockUnidades !== null) {
+                        card.dataset.stockUnidades = String(stockUnidades);
+                    }
+                    
+                    // Actualizar etiquetas visuales
+                    const badges = card.querySelectorAll('.product-badge-stock');
+                    badges.forEach(badge => {
+                        const title = badge.getAttribute('title');
+                        if (title === 'Stock Cerrado') {
+                            badge.textContent = `St: ${stockActual}`;
+                        } else if (title === 'Stock Unidades' && stockUnidades !== null) {
+                            badge.textContent = `Un: ${stockUnidades}`;
+                        } else if (!title) {
+                            // Fallback para cuando no tiene title (diseño original)
+                            badge.textContent = `St: ${stockActual}`;
+                        }
+                    });
                 });
 
             // Mantener actualizado el cache del carrito para futuras ventas.
             cart.forEach(item => {
                 if (item.type === 'PRODUCT' && String(item.id) === productoId) {
                     item.stock = stockActual;
+                    if (stockUnidades !== null) {
+                        item.unitsStock = stockUnidades;
+                    }
                 }
             });
         });

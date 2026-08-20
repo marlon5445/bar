@@ -112,15 +112,17 @@ class VentaService
             $stockActualizado = [];
             foreach (array_keys($productosStockAfectado) as $productoId) {
                 $producto = $this->db->table('productos')
-                                     ->select('id, stock_actual, controla_stock')
+                                     ->select('id, stock_actual, stock_unidades, controla_stock, maneja_unidades')
                                      ->where('id', (int) $productoId)
                                      ->where('controla_stock', 1)
                                      ->get()->getRowArray();
 
                 if ($producto) {
                     $stockActualizado[] = [
-                        'producto_id'  => (int) $producto['id'],
-                        'stock_actual' => (int) $producto['stock_actual'],
+                        'producto_id'     => (int) $producto['id'],
+                        'stock_actual'    => (int) $producto['stock_actual'],
+                        'stock_unidades'  => (int) $producto['stock_unidades'],
+                        'maneja_unidades' => (bool) $producto['maneja_unidades'],
                     ];
                 }
             }
@@ -144,6 +146,209 @@ class VentaService
             $this->db->transRollback();
             log_message('error', '[VentaService] ROLLBACK — ' . $e->getMessage());
             return ['success' => false, 'mensaje' => $e->getMessage() ?: 'Error al procesar la venta. Se revirtieron los cambios.'];
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // APERTURA DE PRODUCTOS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function realizarApertura(int $productoId, int $cantidad, int $usuarioId, bool $transaccionAutomatica = false): array
+    {
+        if (!$transaccionAutomatica) {
+            $this->db->transBegin();
+        }
+
+        try {
+            $producto = $this->db->table('productos')
+                ->where('id', $productoId)
+                ->where('controla_stock', 1)
+                ->get()->getRowArray();
+
+            if (!$producto) {
+                throw new \RuntimeException('El producto no existe o no controla inventario.');
+            }
+
+            if ($producto['stock_actual'] < $cantidad) {
+                throw new \RuntimeException("Stock insuficiente. Disponible: {$producto['stock_actual']} | Requerido: {$cantidad}");
+            }
+
+            $stockAnteriorActual = (int)$producto['stock_actual'];
+            $stockPosteriorActual = $stockAnteriorActual - $cantidad;
+
+            // 1. Descontar del stock_actual
+            $this->db->table('productos')
+                ->where('id', $productoId)
+                ->update(['stock_actual' => $stockPosteriorActual]);
+
+            // 2. Registrar movimiento de salida (Apertura)
+            $obsSalida = $producto['maneja_unidades'] == 1 
+                ? "Apertura de {$cantidad} cajetilla(s) " . $producto['nombre'] . " para venta por unidades"
+                : "Apertura de " . ($cantidad > 1 ? "{$cantidad} unidades" : "una unidad") . " de " . $producto['nombre'];
+            
+            $this->db->table('movimientos_stock')->insert([
+                'producto_id'     => $productoId,
+                'tipo_movimiento' => 'APERTURA',
+                'cantidad'        => $cantidad,
+                'stock_anterior'  => $stockAnteriorActual,
+                'stock_posterior' => $stockPosteriorActual,
+                'usuario_id'      => $usuarioId,
+                'observacion'     => $obsSalida,
+                'fecha'           => date('Y-m-d H:i:s')
+            ]);
+
+            // 3. Si maneja unidades, sumar al stock_unidades
+            if ($producto['maneja_unidades'] == 1) {
+                $unidadesPorCaja = (int)$producto['unidades_por_caja'];
+                $totalUnidadesNuevas = $cantidad * $unidadesPorCaja;
+                $stockAnteriorUnidades = (int)$producto['stock_unidades'];
+                $stockPosteriorUnidades = $stockAnteriorUnidades + $totalUnidadesNuevas;
+
+                $this->db->table('productos')
+                    ->where('id', $productoId)
+                    ->update(['stock_unidades' => $stockPosteriorUnidades]);
+
+                // Registrar movimiento de ingreso de unidades
+                $this->db->table('movimientos_stock')->insert([
+                    'producto_id'     => $productoId,
+                    'tipo_movimiento' => 'APERTURA',
+                    'cantidad'        => $totalUnidadesNuevas,
+                    'stock_anterior'  => $stockAnteriorUnidades,
+                    'stock_posterior' => $stockPosteriorUnidades,
+                    'usuario_id'      => $usuarioId,
+                    'observacion'     => "Ingreso de {$totalUnidadesNuevas} unidades sueltas por apertura de {$cantidad} cajetilla(s) " . $producto['nombre'],
+                    'fecha'           => date('Y-m-d H:i:s')
+                ]);
+            }
+
+            if (!$transaccionAutomatica) {
+                if ($this->db->transStatus() === false) {
+                    $this->db->transRollback();
+                    return ['success' => false, 'message' => 'Error al procesar la apertura.'];
+                }
+                $this->db->transCommit();
+            }
+
+            return ['success' => true, 'message' => 'Apertura realizada con éxito.'];
+
+        } catch (\Exception $e) {
+            if (!$transaccionAutomatica) {
+                $this->db->transRollback();
+            }
+            throw $e;
+        }
+    }
+
+    public function revertirApertura(int $movimientoId, int $usuarioId): array
+    {
+        $this->db->transBegin();
+
+        try {
+            $movimiento = $this->db->table('movimientos_stock')
+                ->where('id', $movimientoId)
+                ->where('tipo_movimiento', 'APERTURA')
+                ->get()->getRowArray();
+
+            if (!$movimiento) {
+                throw new \RuntimeException('El movimiento de apertura no existe.');
+            }
+
+            $producto = $this->db->table('productos')
+                ->where('id', $movimiento['producto_id'])
+                ->get()->getRowArray();
+            
+            if (!$producto) {
+                throw new \RuntimeException('El producto asociado al movimiento ya no existe.');
+            }
+
+            // Identificar si es el movimiento de salida (cajas) o de entrada (unidades)
+            // Normalmente se revierte el que se ve en la lista (que debería ser el de cajas)
+            // Pero por seguridad, manejamos ambos casos si vienen relacionados.
+            
+            $cantidad = (int)$movimiento['cantidad'];
+            $productoId = (int)$movimiento['producto_id'];
+
+            // Lógica de reversión
+            if (strpos($movimiento['observacion'], 'unidades sueltas') !== false) {
+                // Es reversión de unidades
+                $stockAnterior = (int)$producto['stock_unidades'];
+                $stockPosterior = $stockAnterior - $cantidad;
+                
+                if ($stockPosterior < 0) {
+                    throw new \RuntimeException('No se puede revertir: el stock de unidades quedaría en negativo.');
+                }
+
+                $this->db->table('productos')->where('id', $productoId)->update(['stock_unidades' => $stockPosterior]);
+                
+                $ajusteId = $this->db->table('movimientos_stock')->insert([
+                    'producto_id'     => $productoId,
+                    'tipo_movimiento' => 'AJUSTE',
+                    'cantidad'        => $cantidad,
+                    'stock_anterior'  => $stockAnterior,
+                    'stock_posterior' => $stockPosterior,
+                    'usuario_id'      => $usuarioId,
+                    'referencia_id'   => $movimientoId, // Relacionar con el movimiento original
+                    'observacion'     => "Reversión de {$cantidad} unidades sueltas generadas por apertura de " . $producto['nombre'],
+                    'fecha'           => date('Y-m-d H:i:s')
+                ]);
+
+            } else {
+                // Es reversión de cajas/botellas
+                $stockAnterior = (int)$producto['stock_actual'];
+                $stockPosterior = $stockAnterior + $cantidad;
+
+                $this->db->table('productos')->where('id', $productoId)->update(['stock_actual' => $stockPosterior]);
+
+                $this->db->table('movimientos_stock')->insert([
+                    'producto_id'     => $productoId,
+                    'tipo_movimiento' => 'AJUSTE',
+                    'cantidad'        => $cantidad,
+                    'stock_anterior'  => $stockAnterior,
+                    'stock_posterior' => $stockPosterior,
+                    'usuario_id'      => $usuarioId,
+                    'referencia_id'   => $movimientoId, // Relacionar con el movimiento original
+                    'observacion'     => "Reversión de apertura de " . $producto['nombre'],
+                    'fecha'           => date('Y-m-d H:i:s')
+                ]);
+
+                // Si maneja unidades, debemos buscar y revertir también el movimiento de unidades asociado (si existe)
+                if ($producto['maneja_unidades'] == 1) {
+                    $unidadesARevertir = $cantidad * (int)$producto['unidades_por_caja'];
+                    
+                    $stockAnteriorU = (int)$producto['stock_unidades'];
+                    $stockPosteriorU = $stockAnteriorU - $unidadesARevertir;
+                    
+                    if ($stockPosteriorU < 0) {
+                         throw new \RuntimeException('No se puede revertir la apertura de cajas porque ya se consumieron las unidades sueltas.');
+                    }
+
+                    $this->db->table('productos')->where('id', $productoId)->update(['stock_unidades' => $stockPosteriorU]);
+
+                    $this->db->table('movimientos_stock')->insert([
+                        'producto_id'     => $productoId,
+                        'tipo_movimiento' => 'AJUSTE',
+                        'cantidad'        => $unidadesARevertir,
+                        'stock_anterior'  => $stockAnteriorU,
+                        'stock_posterior' => $stockPosteriorU,
+                        'usuario_id'      => $usuarioId,
+                        'referencia_id'   => $movimientoId, // Relacionar con el movimiento principal
+                        'observacion'     => "Reversión de {$unidadesARevertir} unidades sueltas generadas por apertura de " . $producto['nombre'],
+                        'fecha'           => date('Y-m-d H:i:s')
+                    ]);
+                }
+            }
+
+            if ($this->db->transStatus() === false) {
+                $this->db->transRollback();
+                return ['success' => false, 'message' => 'Error al revertir la apertura.'];
+            }
+
+            $this->db->transCommit();
+            return ['success' => true, 'message' => 'Apertura revertida con éxito.'];
+
+        } catch (\Exception $e) {
+            $this->db->transRollback();
+            return ['success' => false, 'message' => $e->getMessage()];
         }
     }
 
@@ -285,7 +490,6 @@ class VentaService
     private function devolverStockMovimiento(array $movimiento, int $ventaId, int $usuarioId): void
     {
         $producto = $this->db->table('productos')
-                             ->select('id, nombre, stock_actual, controla_stock')
                              ->where('id', (int) $movimiento['producto_id'])
                              ->get()->getRowArray();
 
@@ -298,13 +502,22 @@ class VentaService
             throw new \RuntimeException('El movimiento de venta tiene una cantidad inválida.');
         }
 
-        $stockAnterior  = (float) $producto['stock_actual'];
-        $stockPosterior = $stockAnterior + $cantidad;
+        $venderPorUnidad = strpos($movimiento['observacion'], 'unidad suelta') !== false || strpos($movimiento['observacion'], 'unidades sueltas') !== false;
+
+        if ($venderPorUnidad) {
+            $stockAnterior  = (float) $producto['stock_unidades'];
+            $stockPosterior = $stockAnterior + $cantidad;
+            $campoStock = 'stock_unidades';
+        } else {
+            $stockAnterior  = (float) $producto['stock_actual'];
+            $stockPosterior = $stockAnterior + $cantidad;
+            $campoStock = 'stock_actual';
+        }
 
         // Actualizar stock del producto
         $this->db->table('productos')
                  ->where('id', (int) $movimiento['producto_id'])
-                 ->update(['stock_actual' => $stockPosterior]);
+                 ->update([$campoStock => $stockPosterior]);
 
         if ($this->db->affectedRows() === 0) {
             throw new \RuntimeException("No se pudo devolver stock del producto '{$producto['nombre']}'.");
@@ -319,7 +532,7 @@ class VentaService
             'stock_posterior' => $stockPosterior,
             'usuario_id'      => $usuarioId,
             'referencia_id'   => $ventaId,
-            'observacion'     => "Reversión de venta #{$ventaId} por anulación",
+            'observacion'     => "Reversión de venta #{$ventaId} por anulación - " . ($venderPorUnidad ? "{$cantidad} unidad(es)" : "{$cantidad} presentación(es)") . " de " . $producto['nombre'],
             'fecha'           => date('Y-m-d H:i:s'),
         ]);
     }
@@ -350,6 +563,9 @@ class VentaService
             if (empty($item['cantidad']) || (int)$item['cantidad'] <= 0) {
                 return ['ok' => false, 'mensaje' => "Ítem #{$idx}: la cantidad debe ser mayor a 0."];
             }
+            if (isset($item['vender_por_unidad']) && $item['vender_por_unidad'] && (!isset($item['precio_unitario']) || (float)$item['precio_unitario'] <= 0)) {
+                // Si viene del frontend pero el backend lo validará igual, esto es solo preventivo.
+            }
         }
 
         return ['ok' => true, 'mensaje' => ''];
@@ -375,7 +591,22 @@ class VentaService
                     return ['ok' => false, 'mensaje' => "Producto ID {$id} no encontrado o inactivo.", 'items' => [], 'subtotal' => 0];
                 }
 
-                $precioUnit = (float) $producto['precio_venta'];
+                $ventaPorUnidad = isset($item['vender_por_unidad']) && $item['vender_por_unidad'] == true;
+                
+                if ($ventaPorUnidad) {
+                    $precioUnit = (float) ($producto['precio_unitario'] ?? $producto['precio_unidad'] ?? 0);
+                    if ($precioUnit <= 0) {
+                        return [
+                            'ok'       => false,
+                            'mensaje'  => "El producto '{$producto['nombre']}' no tiene configurado precio por unidad.",
+                            'items'    => [],
+                            'subtotal' => 0,
+                        ];
+                    }
+                } else {
+                    $precioUnit = (float) $producto['precio_venta'];
+                }
+
                 $subItem    = round($precioUnit * $cantidad, 2);
                 $subtotal  += $subItem;
 
@@ -383,13 +614,25 @@ class VentaService
                     'tipo_linea'      => 'producto',
                     'referencia_id'   => $id,
                     'producto_id'     => $id,
-                    'nombre'          => $producto['nombre'],
+                    'nombre'          => $producto['nombre'] . ($ventaPorUnidad ? ' (UNIDAD)' : ''),
                     'cantidad'        => $cantidad,
                     'precio_unitario' => $precioUnit,
                     'subtotal_linea'  => $subItem,
                     'controla_stock'  => (bool) $producto['controla_stock'],
+                    'maneja_unidades' => (bool) $producto['maneja_unidades'],
+                    'vender_por_unidad' => $ventaPorUnidad,
                     'stock_actual'    => (float) $producto['stock_actual'],
-                    'items_stock'     => [['producto_id' => $id, 'cantidad' => $cantidad, 'nombre' => $producto['nombre'], 'controla_stock' => (bool) $producto['controla_stock'], 'stock_actual' => (float) $producto['stock_actual']]],
+                    'stock_unidades'  => (float) $producto['stock_unidades'],
+                    'unidades_por_caja' => (int) $producto['unidades_por_caja'],
+                    'items_stock'     => [[
+                        'producto_id' => $id, 
+                        'cantidad' => $cantidad, 
+                        'nombre' => $producto['nombre'], 
+                        'controla_stock' => (bool) $producto['controla_stock'],
+                        'maneja_unidades' => (bool) $producto['maneja_unidades'],
+                        'vender_por_unidad' => $ventaPorUnidad,
+                        'unidades_por_caja' => (int) $producto['unidades_por_caja']
+                    ]],
                 ];
 
             } elseif ($tipo === 'promocion') {
@@ -454,16 +697,26 @@ class VentaService
 
     private function validarStock(array $items): array
     {
-        $requerido = [];
+        $requeridoActual = [];
+        $requeridoUnidades = [];
+
         foreach ($items as $item) {
             foreach ($item['items_stock'] as $s) {
                 if ($s['controla_stock']) {
-                    $requerido[$s['producto_id']] = ($requerido[$s['producto_id']] ?? 0) + $s['cantidad'];
+                    $pid = $s['producto_id'];
+                    $venderPorUnidad = isset($s['vender_por_unidad']) && $s['vender_por_unidad'];
+                    
+                    if ($venderPorUnidad) {
+                        $requeridoUnidades[$pid] = ($requeridoUnidades[$pid] ?? 0) + $s['cantidad'];
+                    } else {
+                        $requeridoActual[$pid] = ($requeridoActual[$pid] ?? 0) + $s['cantidad'];
+                    }
                 }
             }
         }
 
-        foreach ($requerido as $productoId => $cantNeeded) {
+        // Validar stock_actual
+        foreach ($requeridoActual as $productoId => $cantNeeded) {
             $prod = $this->db->table('productos')
                              ->select('nombre, stock_actual')
                              ->where('id', $productoId)
@@ -477,6 +730,40 @@ class VentaService
                     'ok'      => false,
                     'mensaje' => "Stock insuficiente para '{$nombre}'. Disponible: {$stockDisp} | Solicitado: {$cantNeeded}.",
                 ];
+            }
+        }
+
+        // Validar stock_unidades (considerando apertura automática si es necesario)
+        foreach ($requeridoUnidades as $productoId => $cantNeeded) {
+            $prod = $this->db->table('productos')
+                             ->select('nombre, stock_actual, stock_unidades, maneja_unidades, unidades_por_caja')
+                             ->where('id', $productoId)
+                             ->get()->getRowArray();
+
+            if (!$prod) continue;
+
+            $stockDisp = (float) $prod['stock_unidades'];
+            
+            if ($stockDisp < $cantNeeded) {
+                // Si no hay suficientes unidades, verificar si se puede abrir una presentación
+                // Esto es solo una validación previa. La apertura real se hace en descontarStock.
+                // Pero aquí debemos avisar si ni siquiera abriendo hay stock.
+                
+                $faltante = $cantNeeded - $stockDisp;
+                $unidadesPorCaja = (int)$prod['unidades_por_caja'];
+                
+                if ($unidadesPorCaja <= 0) {
+                     return ['ok' => false, 'mensaje' => "El producto '{$prod['nombre']}' no tiene configuradas unidades por caja."];
+                }
+
+                $cajasNecesarias = ceil($faltante / $unidadesPorCaja);
+                
+                if ($prod['stock_actual'] < $cajasNecesarias) {
+                     return [
+                        'ok'      => false,
+                        'mensaje' => "Stock insuficiente para unidades sueltas de '{$prod['nombre']}'. Se requiere abrir {$cajasNecesarias} cajetilla(s) pero solo hay {$prod['stock_actual']} disponible(s).",
+                    ];
+                }
             }
         }
 
@@ -518,9 +805,9 @@ class VentaService
 
             $productoId = $s['producto_id'];
             $cantidad   = $s['cantidad'];
+            $venderPorUnidad = isset($s['vender_por_unidad']) && $s['vender_por_unidad'];
 
             $prod = $this->db->table('productos')
-                             ->select('stock_actual, nombre')
                              ->where('id', $productoId)
                              ->get()->getRowArray();
 
@@ -528,17 +815,50 @@ class VentaService
                 throw new \RuntimeException("Producto ID {$productoId} no encontrado al descontar stock.");
             }
 
-            $stockAnterior  = (float) $prod['stock_actual'];
-            $stockPosterior = $stockAnterior - $cantidad;
+            if ($venderPorUnidad) {
+                // Venta por unidad
+                $stockAnterior = (int)$prod['stock_unidades'];
+                
+                // Si no hay stock suelto, realizar apertura automática
+                if ($stockAnterior < $cantidad) {
+                    $faltante = $cantidad - $stockAnterior;
+                    $unidadesPorCaja = (int)$prod['unidades_por_caja'];
+                    $cajasAAbrir = ceil($faltante / $unidadesPorCaja);
+                    
+                    // Llamar a realizarApertura dentro de la misma transacción
+                    $this->realizarApertura($productoId, (int)$cajasAAbrir, $usuarioId, true);
+                    
+                    // Recargar datos del producto después de la apertura
+                    $prod = $this->db->table('productos')->where('id', $productoId)->get()->getRowArray();
+                    $stockAnterior = (int)$prod['stock_unidades'];
+                }
 
-            if ($stockPosterior < 0) {
-                throw new \RuntimeException("Stock insuficiente para '{$prod['nombre']}'. Disponible: {$stockAnterior} | Solicitado: {$cantidad}.");
-            }
+                $stockPosterior = $stockAnterior - $cantidad;
 
-            $this->db->table('productos')
+                $this->db->table('productos')
                      ->where('id', $productoId)
-                     ->where('stock_actual >=', $cantidad)
-                     ->update(['stock_actual' => $stockPosterior]);
+                     ->update(['stock_unidades' => $stockPosterior]);
+                
+                $observacion = "Venta #{$ventaId} - " . ($cantidad > 1 ? "{$cantidad} unidades sueltas" : "1 unidad suelta") . " de " . $prod['nombre'];
+
+            } else {
+                // Venta normal (caja/botella)
+                $stockAnterior  = (float) $prod['stock_actual'];
+                $stockPosterior = $stockAnterior - $cantidad;
+
+                if ($stockPosterior < 0) {
+                    throw new \RuntimeException("Stock insuficiente para '{$prod['nombre']}'. Disponible: {$stockAnterior} | Solicitado: {$cantidad}.");
+                }
+
+                $this->db->table('productos')
+                         ->where('id', $productoId)
+                         ->where('stock_actual >=', $cantidad)
+                         ->update(['stock_actual' => $stockPosterior]);
+                
+                $observacion = $item['tipo_linea'] === 'promocion'
+                    ? "Venta #{$ventaId} - Producto incluido en promoción \"{$item['nombre']}\""
+                    : "Venta #{$ventaId} - " . ($cantidad > 1 ? "{$cantidad} unidades" : "1 unidad") . " de " . $prod['nombre'];
+            }
 
             if ($this->db->affectedRows() === 0) {
                 throw new \RuntimeException("No se pudo descontar stock del producto '{$prod['nombre']}'.");
@@ -554,9 +874,7 @@ class VentaService
                 'stock_posterior' => $stockPosterior,
                 'usuario_id'      => $usuarioId,
                 'referencia_id'   => $ventaId,
-                'observacion'     => $item['tipo_linea'] === 'promocion'
-                    ? "Venta #{$ventaId} - Producto incluido en promoción \"{$item['nombre']}\""
-                    : "Venta #{$ventaId} - Producto directo",
+                'observacion'     => $observacion,
                 'fecha'           => date('Y-m-d H:i:s'),
             ]);
         }

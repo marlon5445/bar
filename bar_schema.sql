@@ -132,10 +132,14 @@ CREATE TABLE `productos` (
   `nombre` VARCHAR(100) NOT NULL,
   `descripcion` TEXT NULL,
   `precio_venta` DECIMAL(10,2) NOT NULL,
+  `precio_unidad` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `costo` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `stock_actual` INT NOT NULL DEFAULT 0,
+  `stock_unidades` INT NOT NULL DEFAULT 0,
   `stock_minimo` INT NOT NULL DEFAULT 0,
   `controla_stock` TINYINT(1) NOT NULL DEFAULT 1,
+  `maneja_unidades` TINYINT(1) NOT NULL DEFAULT 0,
+  `unidades_por_caja` INT NOT NULL DEFAULT 0,
   `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
   `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `fecha_actualizacion` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -235,7 +239,7 @@ CREATE TABLE `venta_detalle` (
 CREATE TABLE `movimientos_stock` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `producto_id` INT NOT NULL,
-  `tipo_movimiento` ENUM('COMPRA', 'VENTA', 'MERMA', 'AJUSTE') NOT NULL,
+  `tipo_movimiento` ENUM('COMPRA', 'VENTA', 'MERMA', 'AJUSTE', 'APERTURA') NOT NULL,
   `cantidad` INT NOT NULL,
   `stock_anterior` INT NOT NULL,
   `stock_posterior` INT NOT NULL,
@@ -411,15 +415,19 @@ INSERT INTO `categorias` (`id`, `nombre`, `descripcion`, `estado`) VALUES
 (7, 'Otros', 'Piqueos y adicionales', 'ACTIVO');
 
 -- 7. Productos
-INSERT INTO `productos` (`id`, `categoria_id`, `codigo`, `nombre`, `descripcion`, `precio_venta`, `costo`, `stock_actual`, `stock_minimo`, `controla_stock`, `estado`) VALUES
-(1, 1, 'CERV-001', 'Pilsen Callao 620ml', 'Cerveza Pilsen en botella 620ml', 10.00, 6.50, 117, 24, 1, 'ACTIVO'),
-(2, 1, 'CERV-002', 'Cusqueña Negra 620ml', 'Cerveza Cusqueña Negra 620ml', 12.00, 7.80, 80, 12, 1, 'ACTIVO'),
-(3, 2, 'LIC-001', 'Whisky Red Label 750ml', 'Johnnie Walker Red Label 750ml', 85.00, 55.00, 14, 3, 1, 'ACTIVO'),
-(4, 2, 'LIC-002', 'Ron Cartavio Solera 750ml', 'Ron Cartavio Solera 12 Años', 45.00, 28.00, 19, 5, 1, 'ACTIVO'),
-(5, 3, 'TRAG-001', 'Chilcano Clásico', 'Pisco, Ginger Ale y Limón', 18.00, 6.00, 0, 0, 0, 'ACTIVO'),
-(6, 3, 'TRAG-002', 'Jarra de Sangría 1.5L', 'Vino tinto, frutas y licor', 35.00, 15.00, 0, 0, 0, 'ACTIVO'),
-(7, 5, 'CIG-001', 'Lucky Strike Convertible', 'Cajetilla de 20 cigarrillos', 15.00, 10.00, 50, 10, 1, 'ACTIVO'),
-(8, 6, 'GAS-001', 'Coca Cola 500ml', 'Gaseosa en botella 500ml', 5.00, 2.80, 100, 20, 1, 'ACTIVO');
+INSERT INTO `productos` (`id`, `categoria_id`, `codigo`, `nombre`, `descripcion`, `precio_venta`, `precio_unidad`, `costo`, `stock_actual`, `stock_unidades`, `stock_minimo`, `controla_stock`, `maneja_unidades`, `unidades_por_caja`, `estado`) VALUES
+(1, 1, 'CERV-001', 'Pilsen Callao 620ml', 'Cerveza Pilsen en botella 620ml', 10.00, 0.00, 6.50, 117, 0, 24, 1, 0, 0, 'ACTIVO'),
+(2, 1, 'CERV-002', 'Cusqueña Negra 620ml', 'Cerveza Cusqueña Negra 620ml', 12.00, 0.00, 7.80, 80, 0, 12, 1, 0, 0, 'ACTIVO'),
+(3, 2, 'LIC-001', 'Whisky Red Label 750ml', 'Johnnie Walker Red Label 750ml', 85.00, 0.00, 55.00, 14, 0, 3, 1, 0, 0, 'ACTIVO'),
+(4, 2, 'LIC-002', 'Ron Cartavio Solera 750ml', 'Ron Cartavio Solera 12 Años', 45.00, 0.00, 28.00, 19, 0, 5, 1, 0, 0, 'ACTIVO'),
+(5, 3, 'TRAG-001', 'Chilcano Clásico', 'Pisco, Ginger Ale y Limón', 18.00, 0.00, 6.00, 0, 0, 0, 0, 0, 0, 'ACTIVO'),
+(6, 3, 'TRAG-002', 'Jarra de Sangría 1.5L', 'Vino tinto, frutas y licor', 35.00, 0.00, 15.00, 0, 0, 0, 0, 0, 0, 'ACTIVO'),
+(7, 5, 'CIG-001', 'Lucky Strike Convertible', 'Cajetilla de 20 cigarrillos', 15.00, 2.00, 10.00, 50, 0, 10, 1, 1, 20, 'ACTIVO'),
+(8, 6, 'GAS-001', 'Coca Cola 500ml', 'Gaseosa en botella 500ml', 5.00, 0.00, 2.80, 100, 0, 20, 1, 0, 0, 'ACTIVO');
+
+-- SQL para actualizar una base existente
+-- ALTER TABLE productos ADD COLUMN precio_unidad DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER precio_venta;
+-- UPDATE productos SET precio_unidad = 2.00 WHERE codigo = 'CIG-001';
 
 -- 8. Promociones
 INSERT INTO `promociones` (`id`, `nombre`, `descripcion`, `precio`, `estado`) VALUES

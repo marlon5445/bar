@@ -10,6 +10,9 @@
     <a href="<?= site_url('ventas/historial'); ?>" class="ventas-nav-tab active">
         📋 HISTORIAL DE VENTAS
     </a>
+    <a href="<?= site_url('ventas/apertura'); ?>" class="ventas-nav-tab">
+        📦 APERTURA DE PRODUCTOS
+    </a>
 </div>
 
 <div class="historial-container">

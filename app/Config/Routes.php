@@ -62,6 +62,9 @@ $routes->group('ventas', ['filter' => ['auth', 'permission:VENTAS_VER']], static
     $routes->get('/',            'Ventas::index');
     $routes->get('nueva',        'Ventas::index');
     $routes->get('historial',    'Ventas::historial');
+    $routes->get('apertura',     'Ventas::apertura');
+    $routes->post('procesar-apertura', 'Ventas::procesarApertura', ['filter' => 'permission:VENTAS_CREAR']);
+    $routes->post('revertir-apertura/(:num)', 'Ventas::revertirApertura/$1', ['filter' => 'permission:VENTAS_ANULAR']);
     $routes->get('detalle/(:num)','Ventas::detalle/$1');
     $routes->post('procesar',    'Ventas::procesar', ['filter' => 'permission:VENTAS_CREAR']);
     $routes->post('anular/(:num)','Ventas::anular/$1',  ['filter' => 'permission:VENTAS_ANULAR']);

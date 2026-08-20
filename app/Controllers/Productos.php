@@ -67,24 +67,38 @@ class Productos extends BaseController
         }
 
         $data = [
-            'categoria_id'   => $this->request->getPost('categoria_id'),
-            'codigo'         => $codigo ?: null,
-            'nombre'         => trim($this->request->getPost('nombre')),
-            'descripcion'    => trim($this->request->getPost('descripcion')),
-            'precio_venta'   => $this->request->getPost('precio_venta'),
-            'costo'          => $this->request->getPost('costo'),
-            'controla_stock' => $this->request->getPost('controla_stock') ?? 1,
-            'estado'         => $this->request->getPost('estado') ?? 'ACTIVO',
-            'fecha_creacion' => date('Y-m-d H:i:s'),
+            'categoria_id'      => $this->request->getPost('categoria_id'),
+            'codigo'            => $codigo ?: null,
+            'nombre'            => trim($this->request->getPost('nombre')),
+            'descripcion'       => trim($this->request->getPost('descripcion')),
+            'precio_venta'      => $this->request->getPost('precio_venta'),
+            'precio_unidad'     => ($this->request->getPost('maneja_unidades') == 1) ? ($this->request->getPost('precio_unidad') ?: 0) : 0,
+            'costo'             => $this->request->getPost('costo'),
+            'controla_stock'    => $this->request->getPost('controla_stock') ?? 1,
+            'maneja_unidades'   => $this->request->getPost('maneja_unidades') ?? 0,
+            'unidades_por_caja' => $this->request->getPost('unidades_por_caja') ?? 0,
+            'estado'            => $this->request->getPost('estado') ?? 'ACTIVO',
+            'fecha_creacion'    => date('Y-m-d H:i:s'),
         ];
 
         // Si no controla stock, forzar valores a 0
         if ($data['controla_stock'] == 0) {
             $data['stock_actual'] = 0;
+            $data['stock_unidades'] = 0;
             $data['stock_minimo'] = 0;
+            $data['maneja_unidades'] = 0;
+            $data['unidades_por_caja'] = 0;
         } else {
             $data['stock_actual'] = $this->request->getPost('stock_actual') ?: 0;
             $data['stock_minimo'] = $this->request->getPost('stock_minimo') ?: 0;
+            
+            if ($data['maneja_unidades'] == 1) {
+                $data['stock_unidades'] = $this->request->getPost('stock_unidades') ?: 0;
+                $data['unidades_por_caja'] = $this->request->getPost('unidades_por_caja') ?: 0;
+            } else {
+                $data['stock_unidades'] = 0;
+                $data['unidades_por_caja'] = 0;
+            }
         }
 
         if (!$this->productoModel->insert($data)) {
@@ -141,11 +155,17 @@ class Productos extends BaseController
             'nombre'         => trim($this->request->getPost('nombre')),
             'descripcion'    => trim($this->request->getPost('descripcion')),
             'precio_venta'   => $this->request->getPost('precio_venta'),
+            'precio_unidad'  => ($productoExistente['maneja_unidades'] == 1) ? ($this->request->getPost('precio_unidad') ?: 0) : 0,
             'costo'          => $this->request->getPost('costo'),
             'stock_minimo'   => $this->request->getPost('stock_minimo') ?: 0,
             'estado'         => $this->request->getPost('estado'),
             'fecha_actualizacion' => date('Y-m-d H:i:s'),
         ];
+
+        // Permitir actualizar unidades_por_caja solo si maneja unidades
+        if ($productoExistente['maneja_unidades'] == 1) {
+            $data['unidades_por_caja'] = $this->request->getPost('unidades_por_caja') ?: 0;
+        }
 
         if (!$this->productoModel->update($id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->productoModel->errors());

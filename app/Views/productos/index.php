@@ -66,7 +66,14 @@
                             <td><code class="text-muted"><?= esc($p['codigo']) ?: '---'; ?></code></td>
                             <td><strong><?= esc($p['nombre']); ?></strong></td>
                             <td><span class="badge-category"><?= esc($p['categoria_nombre']); ?></span></td>
-                            <td><span class="text-accent" style="font-weight: 600;">S/ <?= number_format($p['precio_venta'], 2); ?></span></td>
+                            <td>
+                                <span class="text-accent" style="font-weight: 600;">S/ <?= number_format($p['precio_venta'], 2); ?></span>
+                                <?php if ($p['maneja_unidades']): ?>
+                                    <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">
+                                        Unidad: S/ <?= number_format($p['precio_unidad'], 2); ?>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
                             <td><span class="text-muted">S/ <?= number_format($p['costo'], 2); ?></span></td>
                             <td class="text-center">
                                 <?php if ($p['controla_stock']): ?>

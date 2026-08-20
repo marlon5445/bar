@@ -80,10 +80,38 @@
             </div>
         </div>
 
+        <div id="seccionManejaUnidades" class="form-group" style="display: none;">
+            <label class="checkbox-item-custom">
+                <input type="checkbox" name="maneja_unidades" id="maneja_unidades" value="1" <?= old('maneja_unidades') == '1' ? 'checked' : ''; ?>>
+                <span class="checkbox-label">Permitir venta por unidades sueltas</span>
+            </label>
+        </div>
+
+        <div id="seccionUnidades" style="display: none;">
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="precio_unidad" class="form-label">Precio por Unidad Suelta (S/)</label>
+                    <input type="number" id="precio_unidad" name="precio_unidad" step="0.01" min="0" value="<?= old('precio_unidad'); ?>" class="form-input-custom" placeholder="Ej: 2.00">
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Precio que se aplicará cuando se venda una unidad suelta.</p>
+                </div>
+                <div class="form-group">
+                    <label for="unidades_por_caja" class="form-label">Unidades por caja/cajetilla</label>
+                    <input type="number" id="unidades_por_caja" name="unidades_por_caja" value="<?= old('unidades_por_caja', '0'); ?>" class="form-input-custom" placeholder="Ej: 20">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="stock_unidades" class="form-label">Stock Inicial de Unidades</label>
+                <input type="number" id="stock_unidades" name="stock_unidades" value="<?= old('stock_unidades', '0'); ?>" class="form-input-custom" placeholder="0">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cantidad inicial de unidades individuales disponibles para venta.</p>
+            </div>
+        </div>
+
         <div id="seccionStock" class="form-grid-2">
             <div class="form-group">
-                <label for="stock_actual" class="form-label">Stock Actual</label>
+                <label for="stock_actual" class="form-label">Stock Inicial Cerrado</label>
                 <input type="number" id="stock_actual" name="stock_actual" value="<?= old('stock_actual', '0'); ?>" class="form-input-custom" placeholder="0">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cantidad inicial de cajas, cajetillas o botellas cerradas disponibles.</p>
             </div>
 
             <div class="form-group">
@@ -117,146 +145,49 @@
 </div>
 
 <style>
-    .card-form-center {
-        max-width: 700px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-    .modern-form {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    .form-grid-2 {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.5rem;
-    }
-    .form-label {
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-    }
-    .form-input-custom {
-        width: 100%;
-        background: var(--bg-body);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        padding: 0.75rem 1rem;
-        color: var(--text-primary);
-        font-family: inherit;
-        font-size: 1rem;
-        transition: var(--transition);
-        outline: none;
-    }
-    .form-input-custom:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-glow);
-    }
-    .textarea-custom {
-        min-height: 100px;
-        resize: vertical;
-    }
-    .form-actions-full {
-        margin-top: 1rem;
-    }
-    .btn-primary-full {
-        width: 100%;
-        background: var(--accent);
-        color: #000;
-        padding: 0.85rem;
-        border-radius: 10px;
-        border: none;
-        font-weight: 700;
-        font-size: 1rem;
-        cursor: pointer;
-        transition: var(--transition);
-    }
-    .btn-primary-full:hover {
-        background: var(--accent-hover);
-        transform: translateY(-2px);
-        box-shadow: var(--accent-glow);
-    }
-    .btn-secondary-full {
-        width: 100%;
-        background: var(--bg-card);
-        color: var(--text-primary);
-        padding: 0.85rem;
-        border-radius: 10px;
-        border: 1px solid var(--border-color);
-        font-weight: 600;
-        font-size: 1rem;
-        transition: var(--transition);
-    }
-    .btn-secondary-full:hover {
-        background: var(--bg-card-hover);
-    }
-    .btn-secondary-custom {
-        background: var(--bg-card);
-        color: var(--text-primary);
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 600;
-        border: 1px solid var(--border-color);
-        transition: var(--transition);
-        font-size: 0.9rem;
-    }
-    .btn-secondary-custom:hover {
-        background: var(--bg-card-hover);
-        border-color: var(--text-muted);
-    }
-    .text-danger { color: var(--danger); }
-    
-    /* Radio Group Custom */
-    .radio-group-custom {
-        display: flex;
-        gap: 2rem;
-        padding: 0.5rem 0;
-    }
-    .radio-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        cursor: pointer;
-    }
-    .radio-item input[type="radio"] {
-        width: 18px;
-        height: 18px;
-        accent-color: var(--accent);
-        cursor: pointer;
-    }
-    .radio-label {
-        font-size: 1rem;
-        color: var(--text-primary);
-    }
-
-    @media (max-width: 600px) {
-        .form-grid-2 { grid-template-columns: 1fr; }
-        .card-form-center { padding: 1.25rem; }
-    }
+    /* Estilos específicos de esta vista si los hubiera */
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const radioControlaStock = document.querySelectorAll('input[name="controla_stock"]');
     const seccionStock = document.getElementById('seccionStock');
+    const seccionManejaUnidades = document.getElementById('seccionManejaUnidades');
+    const seccionUnidades = document.getElementById('seccionUnidades');
+    const manejaUnidadesCheckbox = document.getElementById('maneja_unidades');
     const inputStockActual = document.getElementById('stock_actual');
     const inputStockMinimo = document.getElementById('stock_minimo');
+    const inputUnidadesPorCaja = document.getElementById('unidades_por_caja');
+    const inputStockUnidades = document.getElementById('stock_unidades');
+    const inputPrecioUnidad = document.getElementById('precio_unidad');
 
     function toggleStockFields() {
         const controla = document.querySelector('input[name="controla_stock"]:checked').value;
         if (controla === '1') {
             seccionStock.style.display = 'grid';
+            seccionManejaUnidades.style.display = 'block';
+            toggleUnidadesSection();
         } else {
             seccionStock.style.display = 'none';
+            seccionManejaUnidades.style.display = 'none';
+            seccionUnidades.style.display = 'none';
             inputStockActual.value = 0;
             inputStockMinimo.value = 0;
+            manejaUnidadesCheckbox.checked = false;
+            inputUnidadesPorCaja.value = 0;
+            inputStockUnidades.value = 0;
+            inputPrecioUnidad.value = 0;
+        }
+    }
+
+    function toggleUnidadesSection() {
+        if (manejaUnidadesCheckbox.checked && document.querySelector('input[name="controla_stock"]:checked').value === '1') {
+            seccionUnidades.style.display = 'block';
+        } else {
+            seccionUnidades.style.display = 'none';
+            inputUnidadesPorCaja.value = 0;
+            inputStockUnidades.value = 0;
+            inputPrecioUnidad.value = 0;
         }
     }
 
@@ -264,8 +195,11 @@ document.addEventListener('DOMContentLoaded', function() {
         radio.addEventListener('change', toggleStockFields);
     });
 
+    manejaUnidadesCheckbox.addEventListener('change', toggleUnidadesSection);
+
     // Ejecutar al inicio
     toggleStockFields();
+    toggleUnidadesSection();
 });
 </script>
 
