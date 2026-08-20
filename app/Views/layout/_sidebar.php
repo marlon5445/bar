@@ -100,18 +100,18 @@ $can = function($permiso) use ($usuarioModel, $rolActual) {
                 </a>
             <?php endif; ?>
 
-            <?php if ($can('INVENTARIO_VER')): ?>
-                <a href="#" class="menu-item module-unbuilt">
+            <?php //if ($can('INVENTARIO_VER')): ?>
+                <!--<a href="#" class="menu-item module-unbuilt">
                     <span class="menu-icon">📦</span>
                     <span>Inventario</span>
-                </a>
-            <?php endif; ?>
+                </a>-->
+            <?php //endif; ?>
 
         <?php endif; ?>
 
         <!-- ANÁLISIS -->
-        <?php if ($can('REPORTES_VER')): ?>
-            <div class="menu-category">Análisis</div>
+        <?php //if ($can('REPORTES_VER')): ?>
+            <!--<div class="menu-category">Análisis</div>
 
             <a href="#" class="menu-item module-unbuilt">
                 <span class="menu-icon">📊</span>
@@ -124,8 +124,8 @@ $can = function($permiso) use ($usuarioModel, $rolActual) {
             <a href="#" class="menu-item module-unbuilt">
                 <span class="menu-icon">🔮</span>
                 <span>Predicciones</span>
-            </a>
-        <?php endif; ?>
+            </a>-->
+        <?php //endif; ?>
 
         <!-- ADMINISTRACIÓN -->
         <?php if ($can('USUARIOS_VER')): ?>

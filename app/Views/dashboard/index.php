@@ -106,8 +106,8 @@
     </div>
 </div>
 
-<!-- SECCIÓN INFERIOR: VENTAS POR MESERO, STOCK CRÍTICO Y ESTIMACIÓN -->
-<div class="grid-3">
+<!-- SECCIÓN INFERIOR: VENTAS POR MESERO Y STOCK CRÍTICO -->
+<div class="grid-2">
     <!-- Ventas por Mesero 👨‍🍳 -->
     <div class="card">
         <div class="card-title">
@@ -165,29 +165,6 @@
                 <p style="font-size: 0.8rem; color: var(--text-muted);">Todos los productos cuentan con stock suficiente.</p>
             </div>
         <?php endif; ?>
-    </div>
-
-    <!-- Tarjeta Demostrativa: Próximo Sábado 🔥 -->
-    <div class="card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(234, 88, 12, 0.15) 100%); border: 1px solid rgba(245, 158, 11, 0.3);">
-        <div class="card-title">
-            <span style="color: var(--accent);">🔥 PRÓXIMO SÁBADO</span>
-            <span style="font-size: 0.7rem; font-weight: 700; background: var(--accent); color: #000; padding: 0.2rem 0.5rem; border-radius: 10px;">DEMO</span>
-        </div>
-        <div style="margin-bottom: 1rem;">
-            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Proyección Estimada</div>
-            <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-top: 0.2rem;">⚡ Alta Demanda Esperada</div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem;">
-            <div style="background: var(--bg-card); padding: 0.75rem; border-radius: 12px; border: 1px solid var(--border-color);">
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Ventas estimadas</div>
-                <div style="font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem; font-weight: 700; color: var(--accent);">S/ 2,100 - 2,600</div>
-            </div>
-            <div style="background: var(--bg-card); padding: 0.75rem; border-radius: 12px; border: 1px solid var(--border-color);">
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Clientes estimados</div>
-                <div style="font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem; font-weight: 700; color: var(--info);">110 - 140</div>
-            </div>
-        </div>
     </div>
 </div>
 

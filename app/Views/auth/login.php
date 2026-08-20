@@ -186,7 +186,6 @@
             <div class="brand-logo">
                 <span>🍺</span> BAR MANAGER
             </div>
-            <p class="brand-tagline">"El control total de tu bar"</p>
         </div>
 
         <div class="login-card">
@@ -221,10 +220,6 @@
                     Ingresar al Sistema
                 </button>
             </form>
-
-            <div class="login-footer">
-                Acceso restringido para <span class="badge-role">ADMIN</span> y <span class="badge-role">CAJERO</span>
-            </div>
         </div>
     </div>
 
