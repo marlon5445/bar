@@ -81,7 +81,7 @@
                                         $stockBajo = $p['stock_actual'] <= $p['stock_minimo'];
                                     ?>
                                     <span class="stock-badge <?= $stockBajo ? 'stock-low' : 'stock-normal'; ?>" title="Mínimo: <?= $p['stock_minimo']; ?>">
-                                        <?= $stockBajo ? '⚠️' : ''; ?> <?= $p['stock_actual']; ?>
+                                        <?= $stockBajo ? '⚠️' : ''; ?> <?= $p['stock_actual']; ?> <?= $p['maneja_unidades'] ? '(' . $p['stock_unidades'] . ' u)' : ''; ?>
                                     </span>
                                 <?php else: ?>
                                     <span class="text-muted" style="font-size: 0.8rem;">No controla</span>
@@ -100,7 +100,9 @@
                                                     title="Ajustar Stock"
                                                     data-id="<?= $p['id']; ?>"
                                                     data-nombre="<?= esc($p['nombre']); ?>"
-                                                    data-stock="<?= $p['stock_actual']; ?>">
+                                                    data-maneja-unidades="<?= $p['maneja_unidades']; ?>"
+                                                    data-stock-actual="<?= $p['stock_actual']; ?>"
+                                                    data-stock-unidades="<?= $p['stock_unidades']; ?>">
                                                 📦
                                             </button>
                                         <?php endif; ?>
@@ -199,14 +201,27 @@
                     <label style="font-size: 0.85rem; color: var(--text-muted);">Producto:</label>
                     <div id="ajusteNombreProducto" style="font-weight: 700; color: var(--text-primary);"></div>
                 </div>
+                
+                <div id="contenedorTipoAjuste" style="display: none; margin-bottom: 0.5rem;">
+                    <label class="form-label">Ajustar por:</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="tipo_stock" value="cajas" checked class="radio-tipo-stock"> Cajas
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="tipo_stock" value="unidades" class="radio-tipo-stock"> Unidades
+                        </label>
+                    </div>
+                </div>
+
                 <div style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.85rem; color: var(--text-muted);">Stock Actual:</label>
+                    <label id="labelStockActual" style="font-size: 0.85rem; color: var(--text-muted);">Stock Actual (Cajas):</label>
                     <div id="ajusteStockActual" style="font-weight: 700; color: var(--accent);"></div>
                 </div>
             </div>
 
             <div style="text-align: left; margin-bottom: 1rem;">
-                <label class="form-label">Nuevo Stock</label>
+                <label id="labelNuevoStock" class="form-label">Nuevo Stock (Cajas)</label>
                 <input type="number" name="nuevo_stock" id="nuevoStockInput" required class="form-input-custom" placeholder="Ingrese el nuevo stock total">
             </div>
 
@@ -600,12 +615,35 @@ $(document).ready(function() {
     const $ajusteProductoId = $('#ajusteProductoId');
     const $ajusteNombreProducto = $('#ajusteNombreProducto');
     const $ajusteStockActual = $('#ajusteStockActual');
+    const $labelStockActual = $('#labelStockActual');
+    const $labelNuevoStock = $('#labelNuevoStock');
+    const $contenedorTipoAjuste = $('#contenedorTipoAjuste');
     
+    let currentProdManejaUnidades = 0;
+    let currentStockActual = 0;
+    let currentStockUnidades = 0;
+
     $('.btn-trigger-ajuste').on('click', function() {
         const $btn = $(this);
-        $ajusteProductoId.val($btn.data('id'));
-        $ajusteNombreProducto.text($btn.data('nombre'));
-        $ajusteStockActual.text($btn.data('stock'));
+        const id = $btn.data('id');
+        const nombre = $btn.data('nombre');
+        currentProdManejaUnidades = $btn.data('maneja-unidades');
+        currentStockActual = $btn.data('stock-actual');
+        currentStockUnidades = $btn.data('stock-unidades');
+
+        $ajusteProductoId.val(id);
+        $ajusteNombreProducto.text(nombre);
+        
+        if (currentProdManejaUnidades == 1) {
+            $contenedorTipoAjuste.show();
+            // Reset a cajas por defecto al abrir
+            $('input[name="tipo_stock"][value="cajas"]').prop('checked', true);
+            actualizarUIStock('cajas');
+        } else {
+            $contenedorTipoAjuste.hide();
+            actualizarUIStock('cajas');
+        }
+
         $('#nuevoStockInput').val('');
         $('#motivoAjuste').val('');
         $('#observacionAjuste').val('');
@@ -615,6 +653,24 @@ $(document).ready(function() {
         
         $modalAjuste.addClass('show');
     });
+
+    $('.radio-tipo-stock').on('change', function() {
+        actualizarUIStock($(this).val());
+    });
+
+    function actualizarUIStock(tipo) {
+        if (tipo === 'unidades') {
+            $labelStockActual.text('Stock Actual (Unidades):');
+            $labelNuevoStock.text('Nuevo Stock (Unidades):');
+            $ajusteStockActual.text(currentStockUnidades);
+            $('#nuevoStockInput').attr('placeholder', 'Ingrese el nuevo stock de unidades');
+        } else {
+            $labelStockActual.text('Stock Actual (Cajas):');
+            $labelNuevoStock.text('Nuevo Stock (Cajas):');
+            $ajusteStockActual.text(currentStockActual);
+            $('#nuevoStockInput').attr('placeholder', 'Ingrese el nuevo stock de cajas');
+        }
+    }
 
     $('#btnCancelAjuste, #modalAjustarStock').on('click', function(e) {
         if (e.target === this || $(this).attr('id') === 'btnCancelAjuste') {

@@ -109,9 +109,9 @@
 
         <div id="seccionStock" class="form-grid-2">
             <div class="form-group">
-                <label for="stock_actual" class="form-label">Stock Inicial Cerrado</label>
+                <label for="stock_actual" id="label_stock_actual" class="form-label">Stock Inicial</label>
                 <input type="number" id="stock_actual" name="stock_actual" value="<?= old('stock_actual', '0'); ?>" class="form-input-custom" placeholder="0">
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cantidad inicial de cajas, cajetillas o botellas cerradas disponibles.</p>
+                <p id="help_stock_actual" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cantidad inicial disponible.</p>
             </div>
 
             <div class="form-group">
@@ -160,6 +160,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputUnidadesPorCaja = document.getElementById('unidades_por_caja');
     const inputStockUnidades = document.getElementById('stock_unidades');
     const inputPrecioUnidad = document.getElementById('precio_unidad');
+    const labelStockActual = document.getElementById('label_stock_actual');
+    const helpStockActual = document.getElementById('help_stock_actual');
 
     function toggleStockFields() {
         const controla = document.querySelector('input[name="controla_stock"]:checked').value;
@@ -183,8 +185,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function toggleUnidadesSection() {
         if (manejaUnidadesCheckbox.checked && document.querySelector('input[name="controla_stock"]:checked').value === '1') {
             seccionUnidades.style.display = 'block';
+            labelStockActual.textContent = 'Stock Inicial (Cajas/Paquetes Cerrados)';
+            helpStockActual.textContent = 'Cantidad de cajas, cajetillas o botellas sin abrir disponibles';
         } else {
             seccionUnidades.style.display = 'none';
+            labelStockActual.textContent = 'Stock Inicial';
+            helpStockActual.textContent = 'Cantidad inicial disponible.';
             inputUnidadesPorCaja.value = 0;
             inputStockUnidades.value = 0;
             inputPrecioUnidad.value = 0;

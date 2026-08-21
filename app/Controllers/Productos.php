@@ -185,6 +185,7 @@ class Productos extends BaseController
 
         $id = $this->request->getPost('producto_id');
         $nuevoStock = (int) $this->request->getPost('nuevo_stock');
+        $tipoStock = $this->request->getPost('tipo_stock') ?: 'cajas';
         $motivo = $this->request->getPost('motivo');
         $observacion = trim($this->request->getPost('observacion'));
 
@@ -197,7 +198,12 @@ class Productos extends BaseController
             return redirect()->back()->with('error', 'Producto no válido para ajuste de stock.');
         }
 
-        $stockAnterior = (int) $producto['stock_actual'];
+        $campoStock = 'stock_actual';
+        if ($producto['maneja_unidades'] == 1 && $tipoStock === 'unidades') {
+            $campoStock = 'stock_unidades';
+        }
+
+        $stockAnterior = (int) $producto[$campoStock];
         $cantidad = abs($nuevoStock - $stockAnterior);
 
         // Mapear motivo a tipo_movimiento
@@ -206,13 +212,17 @@ class Productos extends BaseController
             $tipoMovimiento = 'MERMA';
         }
 
+        // Enriquecer observación con el tipo de stock ajustado
+        $suffix = ($campoStock === 'stock_unidades') ? ' (UNIDADES)' : ' (CAJAS)';
+        $observacionFinal = $observacion . $suffix;
+
         $db = \Config\Database::connect();
         $db->transBegin();
 
         try {
             // 1. Actualizar stock en productos
             $this->productoModel->update($id, [
-                'stock_actual' => $nuevoStock,
+                $campoStock => $nuevoStock,
                 'fecha_actualizacion' => date('Y-m-d H:i:s')
             ]);
 
@@ -225,7 +235,7 @@ class Productos extends BaseController
                 'stock_posterior' => $nuevoStock,
                 'usuario_id'      => session()->get('usuario_id'),
                 'referencia_id'   => null,
-                'observacion'     => $observacion,
+                'observacion'     => $observacionFinal,
                 'fecha'           => date('Y-m-d H:i:s')
             ]);
 

@@ -110,11 +110,13 @@
 
         <div class="form-grid-2">
             <div class="form-group">
-                <label class="form-label">Stock Actual Cerrado</label>
+                <label class="form-label"><?= $producto['maneja_unidades'] == '1' ? 'Stock Actual (Cajas/Paquetes Cerrados)' : 'Stock Actual'; ?></label>
                 <div style="background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.75rem 1rem; color: var(--text-primary); font-weight: 700;">
                     <?= $producto['stock_actual']; ?>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cantidad de cajas, cajetillas o botellas cerradas disponibles.</p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    <?= $producto['maneja_unidades'] == '1' ? 'Cantidad de cajas, cajetillas o botellas sin abrir disponibles.' : 'Cantidad actual disponible.'; ?>
+                </p>
             </div>
 
             <div class="form-group">
