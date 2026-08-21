@@ -30,6 +30,20 @@ DROP TABLE IF EXISTS `clientes`;
 DROP TABLE IF EXISTS `meseros`;
 DROP TABLE IF EXISTS `proveedores`;
 DROP TABLE IF EXISTS `usuarios`;
+DROP TABLE IF EXISTS `configuracion`;
+
+-- --------------------------------------------------
+-- -1. TABLA: configuracion
+-- --------------------------------------------------
+CREATE TABLE `configuracion` (
+  `id` INT PRIMARY KEY DEFAULT 1,
+  `nombre_negocio` VARCHAR(100) NOT NULL DEFAULT 'BAR MANAGER',
+  `logo` VARCHAR(255) NULL,
+  `fecha_actualizacion` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `chk_single_row` CHECK (`id` = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `configuracion` (`id`, `nombre_negocio`) VALUES (1, 'BAR MANAGER');
 
 -- --------------------------------------------------
 -- 0. TABLA: proveedores

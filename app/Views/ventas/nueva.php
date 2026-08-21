@@ -114,7 +114,7 @@
                     $icon = '🍾';
                 elseif (str_contains($catNombreLower, 'trago'))
                     $icon = '🥃';
-                elseif (str_contains($catNombreLower, 'cigarro'))
+                elseif (str_contains($catNombreLower, 'cigarro') || str_contains($catNombreLower, 'cigarrillo'))
                     $icon = '🚬';
                 elseif (str_contains($catNombreLower, 'gaseosa'))
                     $icon = '🥤';

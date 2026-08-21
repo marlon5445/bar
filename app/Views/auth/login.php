@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - BAR MANAGER</title>
+    <?php $config = get_configuracion(); ?>
+    <title>Login - <?= esc($config['nombre_negocio']); ?></title>
     <!-- Script Anti-Flicker de Tema (Aplica el tema antes del renderizado de la página) -->
     <script>
         (function () {
@@ -41,6 +42,7 @@
         .brand-header {
             text-align: center;
             margin-bottom: 2rem;
+            display: none;
         }
 
         .brand-logo {
@@ -69,14 +71,40 @@
             padding: 2.5rem 2rem;
             box-shadow: var(--shadow);
             transition: var(--transition);
+            position: relative;
+            overflow: hidden;
         }
 
-        .card-title {
+        .card-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .main-logo-container {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .main-logo-container img {
+            max-width: 120px;
+            height: auto;
+            border-radius: 12px;
+        }
+
+        .card-title2 {
             font-size: 1.35rem;
             font-weight: 700;
-            margin-bottom: 1.5rem;
+            margin-bottom: 0.5rem;
             text-align: center;
             color: var(--text-primary);
+        }
+
+        .card-subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
         }
 
         .alert {
@@ -182,14 +210,24 @@
             </button>
         </div>
 
+
         <div class="brand-header">
             <div class="brand-logo">
-                <span>🍺</span> BAR MANAGER
+                <span>🍺</span> <?= esc($config['nombre_negocio']); ?>
             </div>
         </div>
 
         <div class="login-card">
-            <h2 class="card-title">Iniciar Sesión</h2>
+            <div class="card-header">
+                <?php if ($config['logo']): ?>
+                    <div class="main-logo-container">
+                        <img src="<?= base_url($config['logo']); ?>" alt="Logo">
+                    </div>
+                <?php endif; ?>
+                <h1 class="card-title2">Iniciar Sesión</h1>
+            </div>
+            
+            <div style="position: relative; z-index: 1;">
 
             <?php if (session()->getFlashdata('error')): ?>
                 <div class="alert alert-danger">
@@ -220,6 +258,7 @@
                     Ingresar al Sistema
                 </button>
             </form>
+            </div>
         </div>
     </div>
 

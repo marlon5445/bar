@@ -5,6 +5,8 @@ $usuarioModel = new UsuarioModel();
 $rolActual = session()->get('rol') ?? 'CAJERO';
 $uri = service('uri')->getPath();
 
+$config = get_configuracion();
+
 // Función helper para determinar permiso
 $can = function($permiso) use ($usuarioModel, $rolActual) {
     return $usuarioModel->rolTienePermiso($rolActual, $permiso);
@@ -14,8 +16,15 @@ $can = function($permiso) use ($usuarioModel, $rolActual) {
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <div>
-            <a href="<?= site_url('/'); ?>" class="sidebar-logo">
-                <span>🍺</span> BAR MANAGER
+            <a href="<?= site_url('/'); ?>" class="sidebar-logo" style="display: flex; align-items: center; gap: 0.5rem;">
+                <?php if ($config['logo']): ?>
+                    <img src="<?= base_url($config['logo']); ?>" alt="Logo" style="height: 32px; width: 32px; object-fit: contain; border-radius: 6px; flex-shrink: 0;">
+                <?php else: ?>
+                    <span>🍺</span>
+                <?php endif; ?>
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <?= esc($config['nombre_negocio']); ?>
+                </span>
             </a>
             <div class="sidebar-tagline">El control total de tu bar</div>
         </div>
@@ -135,10 +144,12 @@ $can = function($permiso) use ($usuarioModel, $rolActual) {
                 <span class="menu-icon">👤</span>
                 <span>Usuarios</span>
             </a>
-            <a href="#" class="menu-item module-unbuilt">
+            <?php if ($rolActual === 'ADMIN'): ?>
+            <a href="<?= site_url('configuracion'); ?>" class="menu-item <?= (strpos($uri, 'configuracion') !== false) ? 'active' : ''; ?>">
                 <span class="menu-icon">⚙️</span>
                 <span>Configuración</span>
             </a>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </aside>

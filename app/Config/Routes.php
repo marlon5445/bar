@@ -119,3 +119,9 @@ $routes->group('proveedores', ['filter' => ['auth', 'permission:PROVEEDORES_VER'
     $routes->post('cambiar-estado/(:num)','Proveedores::cambiarEstado/$1',['filter' => 'permission:PROVEEDORES_EDITAR']);
 });
 
+// Grupo de Configuración (Restringido a ADMIN)
+$routes->group('configuracion', ['filter' => ['auth', 'permission:ADMIN']], static function ($routes) {
+    $routes->get('/', 'ConfiguracionController::index');
+    $routes->post('guardar', 'ConfiguracionController::guardar');
+});
+
