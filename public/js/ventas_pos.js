@@ -61,6 +61,35 @@ document.addEventListener('DOMContentLoaded', function () {
     const successModalId = document.getElementById('successModalId');
     const btnSuccessClose = document.getElementById('btnSuccessClose');
 
+    // Modal Alerta Personalizado
+    const posAlertModal = document.getElementById('posAlertModal');
+    const posAlertIcon = document.getElementById('posAlertIcon');
+    const posAlertTitle = document.getElementById('posAlertTitle');
+    const posAlertText = document.getElementById('posAlertText');
+    const btnClosePosAlert = document.getElementById('btnClosePosAlert');
+
+    function showPosAlert(message, title = 'Aviso', icon = '⚠️') {
+        if (!posAlertModal) return;
+        posAlertIcon.textContent = icon;
+        posAlertTitle.textContent = title;
+        posAlertText.textContent = message;
+        posAlertModal.classList.add('show');
+    }
+
+    if (btnClosePosAlert) {
+        btnClosePosAlert.addEventListener('click', () => {
+            posAlertModal.classList.remove('show');
+        });
+    }
+
+    if (posAlertModal) {
+        posAlertModal.addEventListener('click', function (e) {
+            if (e.target === this) {
+                this.classList.remove('show');
+            }
+        });
+    }
+
     // Móvil
     const mobileCartBar      = document.getElementById('mobileCartBar');
     const mobileCartCount    = document.getElementById('mobileCartCount');
@@ -134,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
     btnVentaUnidad.addEventListener('click', function() {
         if (pendingItem) {
             if (pendingItem.unitPrice <= 0) {
-                alert('Este producto no tiene precio por unidad configurado.');
+                showPosAlert('Este producto no tiene precio por unidad configurado.');
                 return;
             }
             if (pendingItem.unitsStock <= 0) {
@@ -142,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     modalTipoVenta.classList.remove('show');
                     modalConfirmApertura.classList.add('show');
                 } else {
-                    alert('No hay stock disponible ni para unidades sueltas ni para apertura.');
+                    showPosAlert('No hay stock disponible ni para unidades sueltas ni para apertura.');
                 }
             } else {
                 addToCart({ 

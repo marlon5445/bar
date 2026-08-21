@@ -119,6 +119,37 @@
     }
 
     // ──────────────────────────────────────────────────────────────────
+    // Modal Alerta Personalizado
+    // ──────────────────────────────────────────────────────────────────
+    const fiadoAlertModal = document.getElementById('fiadoAlertModal');
+    const fiadoAlertIcon = document.getElementById('fiadoAlertIcon');
+    const fiadoAlertTitle = document.getElementById('fiadoAlertTitle');
+    const fiadoAlertText = document.getElementById('fiadoAlertText');
+    const btnCloseFiadoAlert = document.getElementById('btnCloseFiadoAlert');
+
+    function showFiadoAlert(message, title = 'Aviso', icon = '⚠️') {
+        if (!fiadoAlertModal) return;
+        fiadoAlertIcon.textContent = icon;
+        fiadoAlertTitle.textContent = title;
+        fiadoAlertText.textContent = message;
+        fiadoAlertModal.classList.add('show');
+    }
+
+    if (btnCloseFiadoAlert) {
+        btnCloseFiadoAlert.addEventListener('click', () => {
+            fiadoAlertModal.classList.remove('show');
+        });
+    }
+
+    if (fiadoAlertModal) {
+        fiadoAlertModal.addEventListener('click', function (e) {
+            if (e.target === this) {
+                this.classList.remove('show');
+            }
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     // Handlers de Cierre
     // ──────────────────────────────────────────────────────────────────
     function setupModalCloseHandlers() {
@@ -280,10 +311,10 @@
                 btn.textContent = originalText;
                 btn.disabled = false;
             }, 2000);
-            if (!data.success) alert(data.mensaje);
+            if (!data.success) showFiadoAlert(data.mensaje);
         })
         .catch(() => {
-            alert('Error de conexión');
+            showFiadoAlert('Error de conexión');
             btn.textContent = originalText;
             btn.disabled = false;
         });

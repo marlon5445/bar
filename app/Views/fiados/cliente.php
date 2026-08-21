@@ -209,6 +209,20 @@ $hayDeuda = $deudaActual > 0;
     </div>
 </div>
 
+<!-- MODAL DE ALERTA FIADOS (Reemplazo de alert nativo) -->
+<div class="pos-modal-overlay" id="fiadoAlertModal">
+    <div class="pos-modal-box" style="max-width: 400px; text-align: center;">
+        <div class="pos-modal-icon" id="fiadoAlertIcon" style="font-size: 3rem;">⚠️</div>
+        <h3 class="pos-modal-title" id="fiadoAlertTitle">Aviso</h3>
+        <p class="pos-modal-text" id="fiadoAlertText"></p>
+        <div class="pos-modal-actions" style="margin-top: 1.5rem;">
+            <button type="button" class="pos-modal-btn pos-modal-btn-confirm" id="btnCloseFiadoAlert" style="width: 100%;">
+                ENTENDIDO
+            </button>
+        </div>
+    </div>
+</div>
+
 <style>
     .fdetalle-header {
         background: #fff;

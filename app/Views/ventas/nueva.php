@@ -443,6 +443,20 @@
     </div>
 </div>
 
+<!-- MODAL DE ALERTA POS (Reemplazo de alert nativo) -->
+<div class="pos-modal-overlay" id="posAlertModal">
+    <div class="pos-modal-box" style="max-width: 400px; text-align: center;">
+        <div class="pos-modal-icon" id="posAlertIcon" style="font-size: 3rem;">⚠️</div>
+        <h3 class="pos-modal-title" id="posAlertTitle">Aviso</h3>
+        <p class="pos-modal-text" id="posAlertText"></p>
+        <div class="pos-modal-actions" style="margin-top: 1.5rem;">
+            <button type="button" class="pos-modal-btn pos-modal-btn-confirm" id="btnClosePosAlert" style="width: 100%;">
+                ENTENDIDO
+            </button>
+        </div>
+    </div>
+</div>
+
 <?= $this->endSection(); ?>
 
 <?= $this->section('scripts'); ?>
