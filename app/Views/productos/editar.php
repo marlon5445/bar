@@ -60,8 +60,8 @@
             </div>
 
             <div class="form-group">
-                <label for="costo" class="form-label">Costo (S/) <span class="text-danger">*</span></label>
-                <input type="number" id="costo" name="costo" step="0.01" value="<?= old('costo', $producto['costo']); ?>" required class="form-input-custom" placeholder="0.00">
+                <label for="costo" class="form-label">Costo (S/) <span class="text-muted">(Opcional)</span></label>
+                <input type="number" id="costo" name="costo" step="0.01" value="<?= old('costo', $producto['costo']); ?>" class="form-input-custom" placeholder="0.00">
             </div>
         </div>
 

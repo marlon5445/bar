@@ -36,7 +36,7 @@ class ProductoModel extends Model
         'categoria_id'   => 'required|is_not_unique[categorias.id]',
         'precio_venta'   => 'required|decimal|greater_than[0]',
         'precio_unidad'  => 'permit_empty|decimal|greater_than_equal_to[0]',
-        'costo'          => 'required|decimal|greater_than_equal_to[0]',
+        'costo'          => 'permit_empty|decimal|greater_than_equal_to[0]',
         'stock_actual'   => 'permit_empty|integer|greater_than_equal_to[0]',
         'stock_minimo'   => 'permit_empty|integer|greater_than_equal_to[0]',
         'controla_stock' => 'required|in_list[0,1]',
@@ -66,7 +66,6 @@ class ProductoModel extends Model
             'greater_than_equal_to' => 'El precio por unidad no puede ser negativo.',
         ],
         'costo' => [
-            'required'              => 'El costo es obligatorio.',
             'decimal'               => 'El costo debe ser un número decimal.',
             'greater_than_equal_to' => 'El costo no puede ser negativo.',
         ],
